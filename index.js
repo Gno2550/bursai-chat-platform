@@ -124,5 +124,5 @@ async function handleEvent(event) {
 // --- 5. START SERVER ---
 const port = process.env.PORT || 3000;
 app.listen(port, () => {
-  console.log(`Bursai Smart Bot is listening on port ${port}`);
+  console.log(`Bursai is listening on port ${port}`);
 });
