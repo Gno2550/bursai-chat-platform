@@ -3,7 +3,7 @@ require('dotenv').config();
 const express = require('express');
 const line = require('@line/bot-sdk');
 const admin = require('firebase-admin');
-const { GoogleGenAI } = require("@google/genai");
+const { GoogleGenerativeAI } = require('@google/generative-ai');
 
 admin.initializeApp({
   credential: admin.credential.cert({
@@ -20,7 +20,7 @@ const config = {
 };
 const client = new line.Client(config);
 
-const genai = new GoogleGenAI({ apiKey: `${process.env.API_KEY}` });
+const genai = new GoogleGenerativeAI({ apiKey: `${process.env.API_KEY}` });
 const model = genai.getGenerativeModel ({ model: "gemini-1.5-flash-latest"});
 
 const app = express();
