@@ -20,10 +20,8 @@ const config = {
 };
 const client = new line.Client(config);
 
-// ...
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY); // <--- สร้างตัวแปรชื่อ genAI
-const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash-latest" }); // <--- เรียกใช้จาก genAI
-// ...
+const genai = new GoogleGenAI({ apiKey: `${process.env.API_KEY}` });
+//const model = genai.getGenerativeModel({ model: "gemini-1.5-flash-latest"});
 
 const app = express();
 

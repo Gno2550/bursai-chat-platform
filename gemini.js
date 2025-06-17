@@ -1,5 +1,5 @@
 const { GoogleGenAI } = require("@google/genai");
-const Ai = new GoogleGenAI({ apiKey: `${process.env.API_KEY}` });
+const genAi = new GoogleGenAI({ apiKey: `${process.env.API_KEY}` });
 
 class Gemini {
   isUrl(str) {
@@ -22,7 +22,7 @@ class Gemini {
     ].includes(mimeType);
   }
   async multimodal(promptArray) {
-    const response = await Ai.models.generateContent({
+    const response = await genAi.models.generateContent({
       model: "gemini-2.0-flash",
       contents: promptArray,
     });
