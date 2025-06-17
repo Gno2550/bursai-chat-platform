@@ -1,13 +1,4 @@
-// --- Polyfill for Fetch API in Node.js v16 (FIX for Gemini SDK) ---
-const { fetch, Headers, Request, Response } = require('node-fetch');
-
-if (!global.fetch) {
-  global.fetch = fetch;
-  global.Headers = Headers;
-  global.Request = Request;
-  global.Response = Response;
-}
-// --- END OF FIX ---
+require('cross-fetch/polyfill');
 
 'use strict';
 require('dotenv').config();
