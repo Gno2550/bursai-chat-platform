@@ -21,7 +21,7 @@ const config = {
 const client = new line.Client(config);
 
 const genai = new GoogleGenAI({ apiKey: `${process.env.API_KEY}` });
-//const model = genai.getGenerativeModel({ model: "gemini-1.5-flash-latest"});
+const model = genai.getGenerativeModel ({ model: "gemini-1.5-flash-latest"});
 
 const app = express();
 
