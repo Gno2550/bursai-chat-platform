@@ -26,7 +26,7 @@ const client = new line.Client(config);
 
 // เชื่อมต่อ OpenAI (ดึงค่าจาก .env)
 const openai = new OpenAI({
-    apiKey: process.env.OPENAI_API_KEY,
+    apiKey: process.env.API_KEY,
 });
 
 const app = express();
@@ -124,5 +124,5 @@ async function handleEvent(event) {
 // --- 5. START SERVER ---
 const port = process.env.PORT || 3000;
 app.listen(port, () => {
-  console.log(`Bursai is listening on port ${port}`);
+  console.log(`Bursai  is listening on port ${port}`);
 });
