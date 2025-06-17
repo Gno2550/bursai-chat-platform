@@ -1,11 +1,10 @@
-require('cross-fetch/polyfill');
+
 
 'use strict';
 require('dotenv').config();
 const express = require('express');
 const line = require('@line/bot-sdk');
 const admin = require('firebase-admin');
-const { GoogleGenerativeAI } = require('@google/generative-ai');
 
 admin.initializeApp({
   credential: admin.credential.cert({
@@ -22,9 +21,6 @@ const config = {
 };
 const client = new line.Client(config);
 
-console.log("Key being used:", process.env.API_KEY);
-const genai = new GoogleGenerativeAI({ apiKey: `${process.env.API_KEY}` });
-const model = genai.getGenerativeModel ({ model: "gemini-1.5-flash-latest"});
 
 const app = express();
 
@@ -70,21 +66,14 @@ async function handleEvent(event) {
     await db.collection('queues').add({ lineUserId: userId, displayName: profile.displayName, pictureUrl: profile.pictureUrl, queueNumber: newQueueNumber, status: 'WAITING', checkInTime: new Date() });
     return client.replyMessage(event.replyToken, { type: 'text', text: `เช็คอินสำเร็จ! คุณได้รับคิวที่ ${newQueueNumber}` });
   }
-
-  try {
-    const persona = "คุณคือ 'ใบไทร' ผู้ช่วยอัจฉริยะที่เป็นมิตรและพูดคุยเป็นภาษาไทยอย่างเป็นธรรมชาติ";
-    const prompt = `${persona}\n\nคำถามจากผู้ใช้: ${messageText}`;
-    const result = await model.generateContent(prompt);
-    const response = await result.response;
-    const aiReply = response.text();
-    return client.replyMessage(event.replyToken, { type: 'text', text: aiReply });
-  } catch (error) {
-    console.error("Gemini AI Error:", error);
-    return client.replyMessage(event.replyToken, { type: 'text', text: 'ขออภัยค่ะ ตอนนี้ระบบ AI มีปัญหาเล็กน้อย โปรดลองอีกครั้งในภายหลัง' });
-  }
+return client.replyMessage(event.replyToken, {
+    type: 'text',
+    text: 'สวัสดีค่ะ กรุณาพิมพ์ "ลงทะเบียน" เพื่อสมัครสมาชิก หรือ "เช็คอิน" เพื่อรับคิวค่ะ'
+  });
 }
 
+// --- Start Server (เหมือนเดิม) ---
 const port = process.env.PORT || 3000;
 app.listen(port, () => {
-  console.log(`Bursai  Bot is listening on port ${port}`);
+  console.log(`Bursai Bot (Core Features) is listening on port ${port}`);
 });
