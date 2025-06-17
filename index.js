@@ -22,6 +22,7 @@ const config = {
 };
 const client = new line.Client(config);
 
+console.log("Key being used:", process.env.API_KEY);
 const genai = new GoogleGenerativeAI({ apiKey: `${process.env.API_KEY}` });
 const model = genai.getGenerativeModel ({ model: "gemini-1.5-flash-latest"});
 
