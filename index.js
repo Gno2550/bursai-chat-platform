@@ -45,7 +45,7 @@ async function handleEvent(event) {
     const userRef = db.collection('users').doc(userId);
     const doc = await userRef.get();
     if (doc.exists) {
-      return client.replyMessage(event.replyToken, { type: 'text', text: 'คุณได้ลงทะเบียนไว้แล้วค่ะ' });
+      return client.replyMessage(event.replyToken, { type: 'text', text: 'คุณได้ลงทะเบียนไว้แล้วครับ' });
     } else {
       const profile = await client.getProfile(userId);
       await userRef.set({ displayName: profile.displayName, pictureUrl: profile.pictureUrl, registeredAt: new Date() });
@@ -56,7 +56,7 @@ async function handleEvent(event) {
   if (messageText.toLowerCase() === 'เช็คอิน') {
     const userRef = db.collection('users').doc(userId);
     const userDoc = await userRef.get();
-    if (!userDoc.exists) { return client.replyMessage(event.replyToken, { type: 'text', text: 'กรุณาพิมพ์ "ลงทะเบียน" ก่อนทำการเช็คอินค่ะ' }); }
+    if (!userDoc.exists) { return client.replyMessage(event.replyToken, { type: 'text', text: 'กรุณาพิมพ์ "ลงทะเบียน" ก่อนทำการเช็คอินครับ' }); }
     const queueSnapshot = await db.collection('queues').where('lineUserId', '==', userId).where('status', '==', 'WAITING').get();
     if (!queueSnapshot.empty) { const queueData = queueSnapshot.docs[0].data(); return client.replyMessage(event.replyToken, { type: 'text', text: `คุณมีคิวที่รออยู่แล้ว หมายเลขคิวของคุณคือ ${queueData.queueNumber}` }); }
     const profile = userDoc.data();
@@ -67,7 +67,7 @@ async function handleEvent(event) {
   }
 return client.replyMessage(event.replyToken, {
     type: 'text',
-    text: 'สวัสดีค่ะ กรุณาพิมพ์ "ลงทะเบียน" เพื่อสมัครสมาชิก หรือ "เช็คอิน" เพื่อรับคิวค่ะ'
+    text: 'สวัสดีครับ กรุณาพิมพ์ "ลงทะเบียน" เพื่อสมัครสมาชิก หรือ "เช็คอิน" เพื่อรับคิวครับ'
   });
 }
 
