@@ -51,6 +51,10 @@ async function handleEvent(event) {
   const lowerCaseMessage = messageText.toLowerCase();
 
   try {
+    if (lowerCaseMessage === '/help') {
+      console.log('Detected /help command. Bot will do nothing.'); // เพิ่ม Log ไว้ดูการทำงาน
+      return Promise.resolve(null); 
+    }
     // --- สมองส่วนที่ 1: ตรวจจับคำสั่งพิเศษ ---
 
     // คำสั่ง: ลงทะเบียน (เหมือนเดิม)
@@ -111,9 +115,6 @@ async function handleEvent(event) {
         let waitingText = waitingSnapshot.empty ? '\nไม่มีคิวรอเลยครับ' : '\n\nคิวที่กำลังรอ:\n' + waitingSnapshot.docs.map(doc => `- คิวที่ ${doc.data().queueNumber} (คุณ ${doc.data().displayName})`).join('\n');
         return client.replyMessage(event.replyToken, { type: 'text', text: servingText + waitingText });
     }
-    if (lowerCaseMessage === '/help') {
-      
-    }
 
     // --- สมองส่วนที่ 2: ถ้าไม่ใช่คำสั่งพิเศษ ให้ส่งไปให้ AI ---
     const prompt = `
@@ -141,6 +142,8 @@ async function handleEvent(event) {
     console.error("An error occurred:", error);
     return client.replyMessage(event.replyToken, { type: 'text', text: 'ขออภัยครับ เกิดข้อผิดพลาดในระบบ โปรดลองอีกครั้งในภายหลัง' });
   }
+  
+  
 }
 
 // --- ฟังก์ชันใหม่สำหรับเรียกคิวถัดไป ---
