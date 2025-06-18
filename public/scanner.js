@@ -1,13 +1,20 @@
-// scanner.js
+// scanner.js (เวอร์ชันปรับปรุงใหม่ทั้งหมด)
 
 document.addEventListener('DOMContentLoaded', function () {
+    // --- 1. กำหนดค่าและ Element ที่ต้องใช้ ---
     const resultsDiv = document.getElementById('qr-reader-results');
     const VERIFY_API_URL = '/api/verify-check-in';
+    
+    // ประกาศตัวแปรสแกนเนอร์ไว้ด้านนอกเพื่อให้เข้าถึงได้จากทุกที่
+    let html5QrcodeScanner;
 
+    // --- 2. ฟังก์ชันที่จะทำงานเมื่อสแกนสำเร็จ ---
     function onScanSuccess(decodedText, decodedResult) {
-        // เมื่อสแกนสำเร็จ ให้หยุดสแกนเนอร์ชั่วคราว
-        // เราสามารถเข้าถึง html5QrcodeScanner ได้ เพราะมันอยู่ใน Scope เดียวกัน
-        html5QrcodeScanner.pause();
+        // หยุดการสแกนทันทีที่เจอ QR Code
+        if (html5QrcodeScanner && html5QrcodeScanner.getState() === html5QrcodeScanner.ScannerState.SCANNING) {
+            html5QrcodeScanner.pause();
+        }
+
         resultsDiv.textContent = 'กำลังตรวจสอบ Token...';
         resultsDiv.className = '';
 
@@ -19,46 +26,54 @@ document.addEventListener('DOMContentLoaded', function () {
             },
             body: JSON.stringify({ token: decodedText })
         })
-        .then(response => response.json())
+        .then(response => {
+            // ตรวจสอบว่า response สำเร็จหรือไม่ ก่อนจะแปลงเป็น JSON
+            if (!response.ok) {
+                // ถ้า server ตอบกลับมาด้วย status error (เช่น 401, 409) ให้โยนเป็น error
+                return response.json().then(err => { throw err; });
+            }
+            return response.json();
+        })
         .then(data => {
             // แสดงผลลัพธ์ที่ได้จาก Backend
-            if (data.success) {
-                resultsDiv.textContent = data.message;
-                resultsDiv.className = 'success';
-            } else {
-                resultsDiv.textContent = `เกิดข้อผิดพลาด: ${data.message}`;
-                resultsDiv.className = 'error';
-            }
+            resultsDiv.textContent = data.message;
+            resultsDiv.className = 'success';
         })
         .catch(error => {
-            resultsDiv.textContent = 'ไม่สามารถเชื่อมต่อกับเซิร์ฟเวอร์ได้';
+            // ดักจับ error ที่เรา throw มา หรือ error จาก network
+            // error.message จะมาจาก JSON ที่ server ส่งกลับมา
+            resultsDiv.textContent = `เกิดข้อผิดพลาด: ${error.message || 'ไม่สามารถเชื่อมต่อได้'}`;
             resultsDiv.className = 'error';
-            console.error('Fetch error:', error);
+            console.error('API Error:', error);
         })
         .finally(() => {
-            // ให้เริ่มสแกนใหม่หลังจากผ่านไป 3 วินาที
+            // ให้เริ่มสแกนใหม่หลังจากผ่านไป 5 วินาที ไม่ว่าผลลัพธ์จะเป็นอะไรก็ตาม
             setTimeout(() => {
-                if (html5QrcodeScanner.getState() === html5QrcodeScanner.ScannerState.PAUSED) {
+                if (html5QrcodeScanner && html5QrcodeScanner.getState() === html5QrcodeScanner.ScannerState.PAUSED) {
                     resultsDiv.textContent = 'กรุณาหันกล้องไปที่ QR Code ของผู้ใช้...';
                     resultsDiv.className = '';
                     html5QrcodeScanner.resume();
                 }
-            }, 3000);
+            }, 5000); // เพิ่มเวลาเป็น 5 วินาทีเพื่อให้พนักงานอ่านผลทัน
         });
     }
 
+    // --- 3. ฟังก์ชันที่ทำงานเมื่อเกิด Error ตอนเปิดกล้อง ---
     function onScanFailure(error) {
-        // เราสามารถเลือกที่จะไม่แสดง console.warn เพื่อไม่ให้ดูรกได้
-        // console.warn(`QR Code scan error = ${error}`);
+        // ฟังก์ชันนี้จะถูกเรียกเมื่อไม่สามารถเริ่มการสแกนได้ ไม่ใช่ตอนสแกนไม่เจอ
+        // เราสามารถปล่อยว่างไว้ได้ หรือจะแสดงข้อความก็ได้
+        resultsDiv.textContent = 'ไม่สามารถเปิดใช้งานกล้องได้';
+        resultsDiv.className = 'error';
+        console.error(`QR Code scanner initialization failed: ${error}`);
     }
 
+    // --- 4. สร้างและเริ่มการทำงานของสแกนเนอร์ ---
     // สร้าง object ของสแกนเนอร์
-    const html5QrcodeScanner = new html5QrcodeScanner(
-        "qr-reader", // ID ของ div ที่จะให้แสดงกล้อง
+    html5QrcodeScanner = new html5QrcodeScanner(
+        "qr-reader", 
         { 
             fps: 10, 
             qrbox: { width: 250, height: 250 },
-            // เพิ่มตัวเลือกให้ใช้กล้องหลังบนมือถือเป็นหลัก
             facingMode: "environment" 
         },
         false // verbose
