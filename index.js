@@ -32,6 +32,27 @@ const TOTAL_ROOMS = 5; // กำหนดจำนวนห้องทั้ง
 
 const app = express();
 
+app.get('/generate-qr', async (req, res) => {
+  try {
+    const token = req.query.token;
+    if (!token) { return res.status(400).send('Token is required'); }
+
+    // ตรวจสอบ Token เพื่อความปลอดภัย
+    jwt.verify(token, process.env.JWT_SECRET); 
+
+    // สร้าง QR Code เป็น Buffer (ข้อมูลดิบของภาพ)
+    const qrCodeBuffer = await QRCode.toBuffer(token);
+
+    // ส่งภาพกลับไป
+    res.set('Content-Type', 'image/png');
+    res.send(qrCodeBuffer);
+
+  } catch (error) {
+    console.error("QR Generation Error:", error);
+    res.status(500).send('Error generating QR code');
+  }
+});
+
 app.post('/webhook', line.middleware(config), (req, res) => {
   Promise
     .all(req.body.events.map(handleEvent))
@@ -52,26 +73,30 @@ async function handleEvent(event) {
   const messageText = event.message.text.trim();
   const lowerCaseMessage = messageText.toLowerCase();
 
+  
   try {
     
     if (lowerCaseMessage === '/help') {
       console.log('Detected /help command. Bot will do nothing.'); // เพิ่ม Log ไว้ดูการทำงาน
       return Promise.resolve(null); 
-    }
+    }    
+    // --- สมองส่วนที่ 1: ตรวจจับคำสั่งพิเศษ ---
+
+    // --- คำสั่งพิเศษ: เช็คอิน (Logic ใหม่) ---
     if (lowerCaseMessage === 'เช็คอิน') {
       const userRef = db.collection('users').doc(userId);
       const userDoc = await userRef.get();
-      if (!userDoc.exists) {
-        return client.replyMessage(event.replyToken, { type: 'text', text: 'กรุณา "ลงทะเบียน" ก่อนทำการเช็คอินครับ' });
-      }
+      if (!userDoc.exists) { return client.replyMessage(event.replyToken, { type: 'text', text: 'กรุณา "ลงทะเบียน" ก่อนทำการเช็คอินครับ' }); }
 
-      // สร้าง Token ที่มีอายุ 5 นาที
+      // สร้าง Token ที่มีอายุ 5 นาที (เหมือนเดิม)
       const payload = { uid: userId, name: userDoc.data().displayName, iat: Math.floor(Date.now() / 1000) };
       const token = jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '5m' });
 
-      // สร้าง QR Code เป็น Data URI
-      const qrCodeDataURL = await QRCode.toDataURL(token);
-
+      // ** สร้าง URL ที่ชี้กลับมาหา Endpoint ใหม่ของเรา **
+      // Glitch มี process.env.PROJECT_DOMAIN ให้ใช้
+      const projectUrl = `https://${process.env.PROJECT_DOMAIN}.glitch.me`;
+      const qrImageUrl = `${projectUrl}/generate-qr?token=${token}`;
+      
       // ส่งข้อความพร้อมรูปภาพ QR Code กลับไป
       return client.replyMessage(event.replyToken, [
         {
@@ -80,14 +105,12 @@ async function handleEvent(event) {
         },
         {
           type: 'image',
-          originalContentUrl: qrCodeDataURL,
-          previewImageUrl: qrCodeDataURL
+          originalContentUrl: qrImageUrl, // <-- ใช้ URL ที่ถูกต้อง
+          previewImageUrl: qrImageUrl    // <-- ใช้ URL ที่ถูกต้อง
         }
       ]);
     }
     
-    // --- สมองส่วนที่ 1: ตรวจจับคำสั่งพิเศษ ---
-
     // คำสั่ง: ลงทะเบียน (เหมือนเดิม)
     if (lowerCaseMessage === 'ลงทะเบียน') {
       const userRef = db.collection('users').doc(userId);
@@ -96,7 +119,7 @@ async function handleEvent(event) {
       else { const profile = await client.getProfile(userId); await userRef.set({ displayName: profile.displayName, pictureUrl: profile.pictureUrl, registeredAt: new Date() }); return client.replyMessage(event.replyToken, { type: 'text', text: `ลงทะเบียนสำเร็จ! ยินดีต้อนรับคุณ ${profile.displayName}` }); }
     }
 
-    // คำสั่ง: เช็คอินเข้างาน (Logic ใหม่ทั้งหมด)
+    // คำสั่ง: จองคิวช้พื้นที่ (Logic ใหม่ทั้งหมด)
     if (lowerCaseMessage === 'จองคิว') {
       const userRef = db.collection('users').doc(userId);
       const userDoc = await userRef.get();
@@ -173,7 +196,7 @@ async function handleEvent(event) {
 
   } catch (error) {
     console.error("An error occurred:", error);
-    return client.replyMessage(event.replyToken, { type: 'text', text: 'ขออภัยครับ เกิดข้อผิดพลาดในระบบ โปรดลองอีกครั้งในภายหลัง' });
+    return client.replyMessage(event.replyToken, { type: 'text', text: 'ขออภัยครับ เกิดข้อผิดพลาดในระบบ' });
   }
   
   
