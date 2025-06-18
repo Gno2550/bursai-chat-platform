@@ -39,22 +39,30 @@ app.use(express.json());
 
 // --- ** 4. API Routes ทั้งหมด ** ---
 
-// Endpoint สำหรับสร้างภาพ QR Code แบบสดๆ
+// Endpoint สำหรับสร้างภาพ QR Code แบบสดๆ (แก้ไขแล้ว)
 app.get('/generate-qr', async (req, res) => {
   try {
-    const { token } = req.query;
-    if (!token) { return res.status(400).send('Token is required'); }
-    jwt.verify(token, process.env.JWT_SECRET); 
+    const { token } = req.query; // รับ token จาก URL
+    if (!token) {
+      return res.status(400).send('Token is required');
+    }
+
+    // *** นี่คือส่วนที่แก้ไข ***
+    // เราจะไม่ตรวจสอบ (verify) token ที่นี่แล้ว
+    // ปล่อยให้ Endpoint /api/verify-check-in เป็นคนตรวจสอบเอง
+    // หน้าที่ของ Endpoint นี้คือ "สร้างภาพ" จากข้อมูลที่ได้รับมาเท่านั้น
+    
     const qrCodeBuffer = await QRCode.toBuffer(token);
     res.set('Content-Type', 'image/png');
     res.send(qrCodeBuffer);
+
   } catch (error) {
     console.error("QR Generation Error:", error);
     res.status(500).send('Error generating QR code');
   }
 });
 
-// Endpoint สำหรับตรวจสอบ QR Code จากหน้าเว็บสแกนเนอร์
+// Endpoint สำหรับตรวจสอบ QR Code จากหน้าเว็บสแกนเนอร์ (เหมือนเดิม)
 app.post('/api/verify-check-in', async (req, res) => {
   res.set('Access-Control-Allow-Origin', '*');
   try {
@@ -83,6 +91,7 @@ app.post('/api/verify-check-in', async (req, res) => {
 
 
 // --- ** 5. ส่วนจัดการ Logic หลักของบอท (handleEvent) ** ---
+// (โค้ดส่วนนี้ทั้งหมดเหมือนเดิมทุกประการ)
 async function handleEvent(event) {
   if (event.type !== 'message' || event.message.type !== 'text') {
     return Promise.resolve(null);
@@ -167,7 +176,6 @@ async function handleEvent(event) {
     }
 
     // --- สมองส่วนที่ 2: ถ้าไม่ใช่คำสั่งพิเศษ ให้ส่งไปให้ AI ---
-    // นี่คือส่วนของ AI "DIVA" ที่คุณออกแบบไว้ครับ
     const prompt = `
       คุณคือ 'DIVA' ผู้ช่วย AI อัจฉริยะใน BURSAI-CHAT-PLATFORM บุคลิกของคุณคือความเป็นมิตร สุภาพ ตลก และใช้คำลงท้ายว่า "ครับ"
       หน้าที่หลักของคุณคือการพูดคุยทั่วไปและตอบคำถามต่างๆ ของผู้ใช้
