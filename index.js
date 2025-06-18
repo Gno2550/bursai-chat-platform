@@ -33,6 +33,14 @@ const TOTAL_ROOMS = 5; // กำหนดจำนวนห้องทั้ง
 const app = express();
 
 app.get('/generate-qr', async (req, res) => {
+
+app.use(express.json());
+ app.use(express.static('public'));
+// --- ** API Endpoint ใหม่สำหรับตรวจสอบ QR Code ** ---
+app.post('/api/verify-check-in', async (req, res) => {
+  // สำคัญ: อนุญาตให้เว็บอื่นเรียกเข้ามาได้
+  res.set('Access-Control-Allow-Origin', '*'); 
+  
   try {
     const token = req.query.token;
     if (!token) { return res.status(400).send('Token is required'); }
@@ -42,7 +50,7 @@ app.get('/generate-qr', async (req, res) => {
 
     // สร้าง QR Code เป็น Buffer (ข้อมูลดิบของภาพ)
     const qrCodeBuffer = await QRCode.toBuffer(token);
-
+    
     // ส่งภาพกลับไป
     res.set('Content-Type', 'image/png');
     res.send(qrCodeBuffer);
@@ -50,6 +58,57 @@ app.get('/generate-qr', async (req, res) => {
   } catch (error) {
     console.error("QR Generation Error:", error);
     res.status(500).send('Error generating QR code');
+  }
+});
+
+   try {
+    const { token } = req.body; // รับ token ที่ส่งมาจากหน้าเว็บสแกนเนอร์
+    if (!token) {
+      return res.status(400).json({ success: false, message: 'ไม่พบ Token' });
+    }
+
+    // 1. ตรวจสอบ Token (ความถูกต้องและวันหมดอายุ)
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    
+    // 2. ดึงข้อมูล uid และ name จาก Token ที่ถอดรหัสแล้ว
+    const userId = decoded.uid;
+    const displayName = decoded.name;
+
+    // 3. (สำคัญ) ตรวจสอบว่า user คนนี้เคยถูกเช็คอินไปแล้วหรือยัง
+    // เพื่อป้องกันการใช้ QR Code เดิมสแกนซ้ำ
+    const checkinRef = db.collection('checkins').doc(userId);
+    const doc = await checkinRef.get();
+
+    if (doc.exists && doc.data().status === 'CHECKED_IN') {
+      return res.status(409).json({ // 409 Conflict
+        success: false, 
+        message: `คุณ ${displayName} ได้ทำการเช็คอินไปแล้วเมื่อ ${new Date(doc.data().checkInTime.seconds * 1000).toLocaleTimeString('th-TH')}`
+      });
+    }
+
+    // 4. ถ้าทุกอย่างถูกต้อง ให้บันทึกการเช็คอินลง Firestore
+    await checkinRef.set({
+      displayName: displayName,
+      status: 'CHECKED_IN',
+      checkInTime: new Date(),
+      scannedBy: 'staff_01' // ในอนาคตอาจจะเก็บว่าพนักงานคนไหนเป็นคนสแกน
+    });
+
+    // 5. ส่งผลลัพธ์กลับไปให้หน้าเว็บสแกนเนอร์
+    res.json({ 
+      success: true, 
+      message: `เช็คอินสำเร็จ!\nผู้ใช้: ${displayName}`
+    });
+
+  } catch (error) {
+    if (error.name === 'TokenExpiredError') {
+      res.status(401).json({ success: false, message: 'QR Code หมดอายุแล้ว!' });
+    } else if (error.name === 'JsonWebTokenError') {
+      res.status(401).json({ success: false, message: 'QR Code ไม่ถูกต้อง!' });
+    } else {
+      console.error("Verify Check-in Error:", error);
+      res.status(500).json({ success: false, message: 'เกิดข้อผิดพลาดในระบบ' });
+    }
   }
 });
 
