@@ -5,6 +5,8 @@ require('dotenv').config();
 const express = require('express');
 const line = require('@line/bot-sdk');
 const admin = require('firebase-admin');
+const jwt = require('jsonwebtoken'); 
+const QRCode = require('qrcode');
 const { GoogleGenerativeAI } = require('@google/generative-ai');
 
 // --- Firebase Initialization ---
@@ -55,6 +57,33 @@ async function handleEvent(event) {
     if (lowerCaseMessage === '/help') {
       console.log('Detected /help command. Bot will do nothing.'); // เพิ่ม Log ไว้ดูการทำงาน
       return Promise.resolve(null); 
+    }
+    if (lowerCaseMessage === 'เช็คอิน') {
+      const userRef = db.collection('users').doc(userId);
+      const userDoc = await userRef.get();
+      if (!userDoc.exists) {
+        return client.replyMessage(event.replyToken, { type: 'text', text: 'กรุณา "ลงทะเบียน" ก่อนทำการเช็คอินครับ' });
+      }
+
+      // สร้าง Token ที่มีอายุ 5 นาที
+      const payload = { uid: userId, name: userDoc.data().displayName, iat: Math.floor(Date.now() / 1000) };
+      const token = jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '5m' });
+
+      // สร้าง QR Code เป็น Data URI
+      const qrCodeDataURL = await QRCode.toDataURL(token);
+
+      // ส่งข้อความพร้อมรูปภาพ QR Code กลับไป
+      return client.replyMessage(event.replyToken, [
+        {
+          type: 'text',
+          text: `นี่คือ QR Code สำหรับยืนยันตัวตนของคุณ ${userDoc.data().displayName} ครับ\n\nQR Code นี้มีอายุ 5 นาที กรุณาแสดงให้เจ้าหน้าที่เพื่อสแกนเข้าใช้บริการที่จองไว้ครับ`
+        },
+        {
+          type: 'image',
+          originalContentUrl: qrCodeDataURL,
+          previewImageUrl: qrCodeDataURL
+        }
+      ]);
     }
     
     // --- สมองส่วนที่ 1: ตรวจจับคำสั่งพิเศษ ---
@@ -124,13 +153,15 @@ async function handleEvent(event) {
       หน้าที่หลักของคุณคือการพูดคุยทั่วไปและตอบคำถามต่างๆ ของผู้ใช้
 
       สิ่งสำคัญที่ต้องรู้:
-      1. บอทนี้มีความสามารถพิเศษในการ "ลงทะเบียน", "จองคิว", "เสร็จสิ้น", และดู "สถานะ" คิว
+      1. บอทนี้มีความสามารถพิเศษในการ "ลงทะเบียน", "จองคิว", "เสร็จสิ้น", "เช็คอิน" และดู "สถานะ" คิว
       2. ถ้าผู้ใช้ถามเกี่ยวกับการสมัครสมาชิก ให้แนะนำให้พิมพ์ "ลงทะเบียน"
       3. ถ้าผู้ใช้ถามเกี่ยวกับการรับคิว ให้แนะนำให้พิมพ์ "จองคิว"
       4. ถ้าผู้ใช้ถามเรื่องการออกจากห้อง หรือใช้เสร็จแล้ว ให้แนะนำให้พิมพ์ "เสร็จสิ้น"
       5. ถ้าผู้ใช้ถามว่าตอนนี้ถึงคิวไหนแล้ว ให้แนะนำให้พิมพ์ "สถานะ"
-      6. สำหรับคำถามอื่นๆ ทั้งหมด ให้คุณตอบอย่างเป็นธรรมชาติในฐานะ 'DIVA' กระชับและขี้เล่น
+      6. สำหรับคำถามอื่นๆ ทั้งหมด ให้คุณตอบอย่างเป็นธรรมชาติในฐานะ 'DIVA' กระชับและขี้เล่น, คุณเป็นผู้ชาย
       7. ข้อความที่คุณพิมพ์หาผู้ใช้มีความยาว 1 - 2 ประโยคพอ
+      8.ถ้าผู้ใช้ต้องการยืนยันตัวตน, แสดง QR Code, หรือเข้างาน ให้แนะนำให้พิมพ์ "เช็คอิน"
+
 
       คำถามจากผู้ใช้: "${messageText}"
     `;
