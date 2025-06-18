@@ -55,7 +55,7 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     // สร้าง object ของสแกนเนอร์ และกำหนดค่าให้กับตัวแปรที่ประกาศไว้
-    html5QrcodeScanner = new html5QrcodeScanner( // ** แก้ไขจุดที่ 2: ใช้ชื่อ Class ที่ถูกต้อง **
+    html5QrcodeScanner = new Html5QrcodeScanner( // ** แก้ไขจุดที่ 2: ใช้ชื่อ Class ที่ถูกต้อง **
         "qr-reader", 
         { 
             fps: 10, 
