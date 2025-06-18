@@ -111,6 +111,9 @@ async function handleEvent(event) {
         let waitingText = waitingSnapshot.empty ? '\nไม่มีคิวรอเลยครับ' : '\n\nคิวที่กำลังรอ:\n' + waitingSnapshot.docs.map(doc => `- คิวที่ ${doc.data().queueNumber} (คุณ ${doc.data().displayName})`).join('\n');
         return client.replyMessage(event.replyToken, { type: 'text', text: servingText + waitingText });
     }
+    if (lowerCaseMessage === '/help') {
+      
+    }
 
     // --- สมองส่วนที่ 2: ถ้าไม่ใช่คำสั่งพิเศษ ให้ส่งไปให้ AI ---
     const prompt = `
