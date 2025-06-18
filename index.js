@@ -32,11 +32,12 @@ const TOTAL_ROOMS = 5; // กำหนดจำนวนห้องทั้ง
 
 const app = express();
 
+
 app.get('/generate-qr', async (req, res) => {
 
-app.use(express.json());
- app.use(express.static('public'));
-// --- ** API Endpoint ใหม่สำหรับตรวจสอบ QR Code ** ---
+
+  
+  // --- ** API Endpoint ใหม่สำหรับตรวจสอบ QR Code ** ---
 app.post('/api/verify-check-in', async (req, res) => {
   // สำคัญ: อนุญาตให้เว็บอื่นเรียกเข้ามาได้
   res.set('Access-Control-Allow-Origin', '*'); 
@@ -112,6 +113,8 @@ app.post('/api/verify-check-in', async (req, res) => {
   }
 });
 
+app.use(express.json());
+app.use(express.static('public'));
 app.post('/webhook', line.middleware(config), (req, res) => {
   Promise
     .all(req.body.events.map(handleEvent))
