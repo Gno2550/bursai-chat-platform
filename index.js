@@ -51,10 +51,12 @@ async function handleEvent(event) {
   const lowerCaseMessage = messageText.toLowerCase();
 
   try {
+    
     if (lowerCaseMessage === '/help') {
       console.log('Detected /help command. Bot will do nothing.'); // เพิ่ม Log ไว้ดูการทำงาน
       return Promise.resolve(null); 
     }
+    
     // --- สมองส่วนที่ 1: ตรวจจับคำสั่งพิเศษ ---
 
     // คำสั่ง: ลงทะเบียน (เหมือนเดิม)
