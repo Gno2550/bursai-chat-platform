@@ -38,7 +38,7 @@ app.get('/generate-qr', async (req, res) => {
 
   
   // --- ** API Endpoint ใหม่สำหรับตรวจสอบ QR Code ** ---
-app.post('/api/verify-check-in', async (req, res) => {
+app.post('/api/verify-check-in',express.json(), async (req, res) => {
   // สำคัญ: อนุญาตให้เว็บอื่นเรียกเข้ามาได้
   res.set('Access-Control-Allow-Origin', '*'); 
   
@@ -113,7 +113,7 @@ app.post('/api/verify-check-in', async (req, res) => {
   }
 });
 
-app.use(express.json());
+
 app.use(express.static('public'));
 app.post('/webhook', line.middleware(config), (req, res) => {
   Promise
