@@ -36,7 +36,7 @@ app.post('/api/staff-register', async (req, res) => {
         const existingStaff = await db.collection('staffs').where('username', '==', username).get();
         if (!existingStaff.empty) { return res.status(409).json({ success: false, message: 'Username นี้มีผู้ใช้งานแล้ว' }); }
         const hashedPassword = await bcrypt.hash(password, 10);
-        await db.collection('staffs').add({ username, password: hashedPassword, displayName, role: 'operator', registeredAt: new Date() });
+        await db.collection('staffs').add({ username, password: hashedPassword, displayName, role: 'Staff', registeredAt: new Date() });
         res.status(201).json({ success: true, message: 'สมัครสมาชิกสำเร็จ!' });
     } catch (error) {
         console.error("Staff Registration Error:", error);
