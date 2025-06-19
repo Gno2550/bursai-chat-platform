@@ -90,15 +90,14 @@ async function handleEvent(event) {
 
   const userId = event.source.userId;
 
-  // --- 3. จัดการ Message ประเภท Contact (ที่ผู้ใช้กดแชร์) ---
-  if (event.message.type === 'contact') {
+ if (event.message.type === 'contact') {
       const phoneNumber = event.message.phoneNumber;
       const profile = await client.getProfile(userId);
       await db.collection('users').doc(userId).set({ displayName: profile.displayName, pictureUrl: profile.pictureUrl, phoneNumber: phoneNumber, registeredAt: new Date() }, { merge: true });
-      // ตอบกลับว่าลงทะเบียนสำเร็จ
-      return client.replyMessage(event.replyToken, { type: 'text', text: `ลงทะเบียนสำเร็จ! ยินดีต้อนรับคุณ ${profile.displayName} (เบอร์โทร: ${phoneNumber})` });
+      //  console.log ไว้เพื่อดูว่ามันทำงาน
+      console.log(`Contact message received and saved for user ${userId}`);
+      return Promise.resolve(null);
   }
-  
   // --- 4. ถ้าเป็น Message ประเภทอื่นที่ไม่ใช่ Text ก็ไม่ต้องทำอะไร ---
   if (event.message.type !== 'text') {
     return Promise.resolve(null);
@@ -109,6 +108,22 @@ async function handleEvent(event) {
   const lowerCaseMessage = messageText.toLowerCase();
 
   try {
+    
+     if (messageText === 'นี่คือเบอร์โทรศัพท์ของฉัน') {
+        const userRef = db.collection('users').doc(userId);
+        const doc = await userRef.get();
+        // ตรวจสอบให้แน่ใจว่าเบอร์โทรถูกบันทึกไปแล้วจริงๆ (จาก contact message)
+        if (doc.exists && doc.data().phoneNumber) {
+             return client.replyMessage(event.replyToken, {
+                type: 'text',
+                text: `ลงทะเบียนสำเร็จ! ยินดีต้อนรับคุณ ${doc.data().displayName} (เบอร์โทร: ${doc.data().phoneNumber})`
+            });
+        } else {
+            // กรณีที่ text มาถึงก่อน contact ให้รอสักครู่แล้วค่อยตอบ
+            // (นี่เป็นวิธีแก้ขั้นสูง แต่ตอนนี้ให้ตอบแบบนี้ไปก่อน)
+            return client.replyMessage(event.replyToken, { type: 'text', text: 'กำลังบันทึกข้อมูลเบอร์โทรศัพท์... ขอบคุณครับ' });
+        }
+    
     // --- จัดการการพิมพ์เบอร์โทร ---
     const phoneRegex = /^0\d{9}$/;
     if (phoneRegex.test(messageText)) {
