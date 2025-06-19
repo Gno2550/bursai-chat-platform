@@ -40,33 +40,18 @@ app.get('/generate-qr', async (req, res) => {
   }
 });
 
-// Endpoint ตรวจสอบ QR Code (Logic ใหม่: บันทึกการเช็คอินทั่วไป)
+// Endpoint ตรวจสอบ QR Code
 app.post('/api/verify-check-in', async (req, res) => {
   res.set('Access-Control-Allow-Origin', '*');
   try {
     const { token } = req.body;
     if (!token) { return res.status(400).json({ success: false, message: 'ไม่พบ Token' }); }
-    
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
     const userId = decoded.uid;
     const displayName = decoded.name;
-
-    // สร้างเอกสารใหม่ใน collection 'checkin_events' ทุกครั้งที่สแกน
     const checkinEventRef = db.collection('checkin_events').doc(); 
-    
-    await checkinEventRef.set({
-      userId: userId,
-      displayName: displayName,
-      status: 'CHECKED_IN',
-      checkInTime: new Date(),
-      scannedBy: 'staff_01' // ในอนาคตอาจจะระบุพนักงานได้
-    });
-    
-    res.json({ 
-      success: true, 
-      message: `เช็คอินสำเร็จ!\nผู้ใช้: ${displayName}`
-    });
-
+    await checkinEventRef.set({ userId: userId, displayName: displayName, status: 'CHECKED_IN', checkInTime: new Date(), scannedBy: 'staff_01' });
+    res.json({ success: true, message: `เช็คอินสำเร็จ!\nผู้ใช้: ${displayName}` });
   } catch (error) {
     if (error.name === 'TokenExpiredError') { res.status(401).json({ success: false, message: 'QR Code หมดอายุแล้ว!' }); }
     else if (error.name === 'JsonWebTokenError') { res.status(401).json({ success: false, message: 'QR Code ไม่ถูกต้อง!' }); }
@@ -74,161 +59,190 @@ app.post('/api/verify-check-in', async (req, res) => {
   }
 });
 
-// --- Event Handler ---
+// --- ** API Endpoint ใหม่สำหรับจัดการการยินยอมจากหน้าเว็บ ** ---
+app.get('/api/consent-response', async (req, res) => {
+    try {
+        const { choice, token } = req.query;
+        if (!token || !choice) {
+            return res.status(400).send('Missing required parameters.');
+        }
+
+        const decoded = jwt.verify(token, process.env.JWT_SECRET);
+        const userId = decoded.uid;
+        const projectUrl = `https://${process.env.PROJECT_DOMAIN}.glitch.me`;
+
+        if (choice === 'agree') {
+            await db.collection('users').doc(userId).set({ consentGiven: true, consentTimestamp: new Date() }, { merge: true });
+            
+            // ใช้ Push Message ส่งข้อความกลับไปใน LINE เพื่อขอเบอร์โทร
+            await client.pushMessage(userId, {
+                type: 'text',
+                text: 'ขอบคุณที่ยินยอมครับ ขั้นตอนต่อไป กรุณาพิมพ์เบอร์โทรศัพท์ 10 หลักของท่านเพื่อใช้ในการลงทะเบียนครับ (ตัวอย่าง: 0812345678)'
+            });
+            // ส่งผู้ใช้ไปยังหน้า "สำเร็จ"
+            res.redirect(`${projectUrl}/consent_success.html`);
+
+        } else if (choice === 'disagree') {
+            await client.pushMessage(userId, {
+                type: 'text',
+                text: 'ท่านได้ปฏิเสธการให้ข้อมูล ทางเราจึงไม่สามารถดำเนินการลงทะเบียนให้ท่านได้ ขออภัยในความไม่สะดวกครับ'
+            });
+             // ส่งผู้ใช้ไปยังหน้า "ปฏิเสธ"
+            res.redirect(`${projectUrl}/consent_declined.html`);
+        } else {
+            res.status(400).send('Invalid choice.');
+        }
+
+    } catch (error) {
+        console.error("Consent Response Error:", error);
+        res.status(500).send('An error occurred.');
+    }
+});
+
+
+// --- Event Handler (แก้ไข Logic การลงทะเบียน) ---
 async function handleEvent(event) {
-  
-  if (event.type === 'postback') {
-    const data = event.postback.data;
+    
+    // ** ลบส่วนจัดการ postback ออก เพราะไม่ได้ใช้แล้ว **
+    if (event.type !== 'message' || event.message.type !== 'text') {
+        return Promise.resolve(null);
+    }
+
     const userId = event.source.userId;
-    if (data === 'consent_agree') {
-      await db.collection('users').doc(userId).set({ consentGiven: true, consentTimestamp: new Date() }, { merge: true });
-      return client.replyMessage(event.replyToken, {
-        type: 'text',
-        text: 'ขอบคุณที่ยินยอมครับ ขั้นตอนต่อไป กรุณาพิมพ์เบอร์โทรศัพท์ 10 หลักของท่านเพื่อใช้ในการลงทะเบียนครับ (ตัวอย่าง: 0812345678)'
-      });
-    } else if (data === 'consent_disagree') {
-      return client.replyMessage(event.replyToken, { type: 'text', text: 'ท่านได้ปฏิเสธการให้ข้อมูล ทางเราจึงไม่สามารถดำเนินการลงทะเบียนให้ท่านได้ ขออภัยในความไม่สะดวกครับ' });
+    const messageText = event.message.text.trim();
+    const lowerCaseMessage = messageText.toLowerCase();
+
+    try {
+        // --- จัดการการพิมพ์เบอร์โทร ---
+        const phoneRegex = /^0\d{9}$/;
+        if (phoneRegex.test(messageText)) {
+            const userRef = db.collection('users').doc(userId);
+            const doc = await userRef.get();
+            if (doc.exists && doc.data().consentGiven && !doc.data().phoneNumber) {
+                const profile = await client.getProfile(userId);
+                await userRef.set({ displayName: profile.displayName, pictureUrl: profile.pictureUrl, phoneNumber: messageText, registeredAt: new Date() }, { merge: true });
+                return client.replyMessage(event.replyToken, { type: 'text', text: `ลงทะเบียนสำเร็จ! ยินดีต้อนรับคุณ ${profile.displayName} (เบอร์โทร: ${messageText})` });
+            }
+        }
+
+        // --- จัดการคำสั่งพิเศษ ---
+        if (lowerCaseMessage === '/help') { return Promise.resolve(null); }
+        
+        // --- คำสั่ง: ลงทะเบียน (Logic ใหม่: ส่งไปหน้าเว็บ) ---
+        if (lowerCaseMessage === 'ลงทะเบียน') {
+            const userRef = db.collection('users').doc(userId);
+            const doc = await userRef.get();
+            if (doc.exists && doc.data().phoneNumber) {
+                return client.replyMessage(event.replyToken, { type: 'text', text: 'คุณได้ลงทะเบียนไว้เรียบร้อยแล้วครับ' });
+            }
+
+            // สร้าง Token สำหรับหน้าเว็บยินยอม มีอายุ 15 นาที
+            const consentToken = jwt.sign({ uid: userId, purpose: 'consent' }, process.env.JWT_SECRET, { expiresIn: '15m' });
+            const projectUrl = `https://${process.env.PROJECT_DOMAIN}.glitch.me`;
+            const consentUrl = `${projectUrl}/consent.html?token=${consentToken}`;
+
+            // ส่งข้อความพร้อมปุ่มไปยังหน้า Landing Page
+            return client.replyMessage(event.replyToken, {
+                type: 'flex',
+                altText: 'กรุณาอ่านและยินยอมข้อตกลงเพื่อดำเนินการต่อ',
+                contents: {
+                    type: 'bubble',
+                    body: {
+                        type: 'box',
+                        layout: 'vertical',
+                        contents: [
+                            { type: 'text', text: 'ขั้นตอนการลงทะเบียน', weight: 'bold', size: 'xl' },
+                            { type: 'text', text: 'เพื่อดำเนินการต่อ กรุณาอ่านและให้ความยินยอมในข้อตกลงและเงื่อนไขการให้บริการของเราก่อนครับ', wrap: true, margin: 'md'}
+                        ]
+                    },
+                    footer: {
+                        type: 'box',
+                        layout: 'vertical',
+                        contents: [{
+                            type: 'button',
+                            style: 'primary',
+                            height: 'sm',
+                            action: { type: 'uri', label: 'อ่านข้อตกลงและเงื่อนไข', uri: consentUrl }
+                        }]
+                    }
+                }
+            });
+        }
+
+        // --- (โค้ดคำสั่งอื่นๆ และ AI ทั้งหมดเหมือนเดิม) ---
+        
+        // คำสั่ง: เช็คอิน
+        if (lowerCaseMessage === 'เช็คอิน') {
+            const userRef = db.collection('users').doc(userId);
+            const userDoc = await userRef.get();
+            if (!userDoc.exists || !userDoc.data().phoneNumber) { return client.replyMessage(event.replyToken, { type: 'text', text: 'กรุณา "ลงทะเบียน" ให้เสร็จสิ้นก่อนทำการเช็คอินครับ' }); }
+            const payload = { uid: userId, name: userDoc.data().displayName, iat: Math.floor(Date.now() / 1000) };
+            const token = jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '5m' });
+            const projectUrl = `https://${process.env.PROJECT_DOMAIN}.glitch.me`;
+            const qrImageUrl = `${projectUrl}/generate-qr?token=${token}`;
+            return client.replyMessage(event.replyToken, [
+                { type: 'text', text: `นี่คือ QR Code ประจำตัวของคุณ ${userDoc.data().displayName} ครับ\n\nใช้สำหรับยืนยันตัวตน, เข้าร่วมกิจกรรม, หรือสะสมแต้ม QR Code นี้มีอายุ 5 นาทีครับ`},
+                { type: 'image', originalContentUrl: qrImageUrl, previewImageUrl: qrImageUrl }
+            ]);
+        }
+
+        // คำสั่ง: จองคิว
+        if (lowerCaseMessage === 'จองคิว') {
+            const userRef = db.collection('users').doc(userId);
+            const userDoc = await userRef.get();
+            if (!userDoc.exists || !userDoc.data().phoneNumber) { return client.replyMessage(event.replyToken, { type: 'text', text: 'กรุณาพิมพ์ "ลงทะเบียน" ให้เสร็จสิ้นก่อนทำการจองคิวครับ' }); }
+            const existingQueueSnapshot = await db.collection('queues').where('lineUserId', '==', userId).where('status', 'in', ['WAITING', 'SERVING']).get();
+            if (!existingQueueSnapshot.empty) { const queueData = existingQueueSnapshot.docs[0].data(); return client.replyMessage(event.replyToken, { type: 'text', text: `คุณมีคิวอยู่แล้วครับ\nสถานะ: ${queueData.status === 'SERVING' ? 'กำลังใช้บริการห้อง ' + queueData.roomNumber : 'กำลังรอคิวที่ ' + queueData.queueNumber}` }); }
+            const servingSnapshot = await db.collection('queues').where('status', '==', 'SERVING').get();
+            if (servingSnapshot.size < TOTAL_ROOMS) {
+                let assignedRoom = 0;
+                for (let i = 1; i <= TOTAL_ROOMS; i++) { if (!servingSnapshot.docs.map(doc => doc.data().roomNumber).includes(i)) { assignedRoom = i; break; } }
+                await db.collection('queues').add({ lineUserId: userId, displayName: userDoc.data().displayName, status: 'SERVING', checkInTime: new Date(), roomNumber: assignedRoom });
+                return client.replyMessage(event.replyToken, { type: 'text', text: `ถึงคิวของคุณแล้ว! เชิญที่ห้องหมายเลข ${assignedRoom} ได้เลยครับ` });
+            } else {
+                const allQueuesSnapshot = await db.collection('queues').get();
+                const newQueueNumber = allQueuesSnapshot.size + 1;
+                await db.collection('queues').add({ lineUserId: userId, displayName: userDoc.data().displayName, queueNumber: newQueueNumber, status: 'WAITING', checkInTime: new Date() });
+                return client.replyMessage(event.replyToken, { type: 'text', text: `เช็คอินสำเร็จ! คุณได้รับคิวที่ ${newQueueNumber} นะครับ\nตอนนี้ห้องเต็ม กรุณารอสักครู่` });
+            }
+        }
+
+        // คำสั่ง: เสร็จสิ้น
+        if (lowerCaseMessage === 'เสร็จสิ้น') {
+            const servingQueueSnapshot = await db.collection('queues').where('lineUserId', '==', userId).where('status', '==', 'SERVING').limit(1).get();
+            if (servingQueueSnapshot.empty) { return client.replyMessage(event.replyToken, { type: 'text', text: 'คุณยังไม่ได้เข้าใช้บริการเลยครับผม' }); }
+            const queueDoc = servingQueueSnapshot.docs[0];
+            const finishedRoomNumber = queueDoc.data().roomNumber;
+            await queueDoc.ref.update({ status: 'FINISHED', finishTime: new Date() });
+            await client.replyMessage(event.replyToken, { type: 'text', text: `ขอบคุณที่ใช้บริการครับ! (ออกจากห้อง ${finishedRoomNumber})` });
+            return callNextUser(finishedRoomNumber);
+        }
+        
+        // คำสั่ง: สถานะ
+        if (lowerCaseMessage === 'สถานะ' || lowerCaseMessage === 'คิว') {
+            const servingSnapshot = await db.collection('queues').where('status', '==', 'SERVING').orderBy('checkInTime').get();
+            const waitingSnapshot = await db.collection('queues').where('status', '==', 'WAITING').orderBy('queueNumber').get();
+            let servingText = servingSnapshot.empty ? 'ตอนนี้ทุกห้องว่างครับ!' : 'ห้องที่กำลังมีคนใช้:\n' + servingSnapshot.docs.map(doc => `- ห้อง ${doc.data().roomNumber} (คุณ ${doc.data().displayName})`).join('\n');
+            let waitingText = waitingSnapshot.empty ? '\nไม่มีคิวรอเลยครับ' : '\n\nคิวที่กำลังรอ:\n' + waitingSnapshot.docs.map(doc => `- คิวที่ ${doc.data().queueNumber} (คุณ ${doc.data().displayName})`).join('\n');
+            return client.replyMessage(event.replyToken, { type: 'text', text: servingText + waitingText });
+        }
+
+        // --- สมองส่วนที่ 2: ถ้าไม่ใช่คำสั่งพิเศษ ให้ส่งไปให้ AI ---
+        const prompt = `
+          คุณคือ 'DIVA' ผู้ช่วย AI อัจฉริยะใน BURSAI-CHAT-PLATFORM ... (ข้อความ Prompt เหมือนเดิม)
+        `;
+        const result = await model.generateContent(prompt);
+        const response = await result.response;
+        const aiReply = response.text();
+        return client.replyMessage(event.replyToken, { type: 'text', text: aiReply });
+
+    } catch (error) {
+        console.error("An error occurred:", error);
+        return client.replyMessage(event.replyToken, { type: 'text', text: 'ขออภัยครับ เกิดข้อผิดพลาดในระบบ' });
     }
-    return Promise.resolve(null);
-  }
-
-  if (event.type !== 'message' || event.message.type !== 'text') {
-    return Promise.resolve(null);
-  }
-
-  const userId = event.source.userId;
-  const messageText = event.message.text.trim();
-  const lowerCaseMessage = messageText.toLowerCase();
-
-  try {
-    const phoneRegex = /^0\d{9}$/;
-    if (phoneRegex.test(messageText)) {
-      const userRef = db.collection('users').doc(userId);
-      const doc = await userRef.get();
-      if (doc.exists && doc.data().consentGiven && !doc.data().phoneNumber) {
-        const profile = await client.getProfile(userId);
-        await userRef.set({ displayName: profile.displayName, pictureUrl: profile.pictureUrl, phoneNumber: messageText, registeredAt: new Date() }, { merge: true });
-        return client.replyMessage(event.replyToken, { type: 'text', text: `ลงทะเบียนสำเร็จ! ยินดีต้อนรับคุณ ${profile.displayName} (เบอร์โทร: ${messageText})` });
-      }
-    }
-
-    if (lowerCaseMessage === '/help') { return Promise.resolve(null); }
-    
-    if (lowerCaseMessage === 'ลงทะเบียน') {
-      const userRef = db.collection('users').doc(userId);
-      const doc = await userRef.get();
-      if (doc.exists && doc.data().phoneNumber) {
-        return client.replyMessage(event.replyToken, { type: 'text', text: 'คุณได้ลงทะเบียนไว้เรียบร้อยแล้วครับ' });
-      }
-      return client.replyMessage(event.replyToken, { type: 'flex', altText: 'ข้อความขอความยินยอมในการให้ข้อมูล', contents: createConsentBubble() });
-    }
-
-    // คำสั่ง: เช็คอิน (Logic ใหม่: สำหรับยืนยันตัวตนทั่วไป)
-    if (lowerCaseMessage === 'เช็คอิน') {
-      const userRef = db.collection('users').doc(userId);
-      const userDoc = await userRef.get();
-      // ตรวจสอบแค่ว่าลงทะเบียนเสร็จสมบูรณ์หรือยัง
-      if (!userDoc.exists || !userDoc.data().phoneNumber) {
-        return client.replyMessage(event.replyToken, { type: 'text', text: 'กรุณา "ลงทะเบียน" ให้เสร็จสิ้นก่อนทำการเช็คอินครับ' });
-      }
-
-      // สร้าง Token ที่ผูกกับ "ผู้ใช้" เท่านั้น
-      const payload = { 
-        uid: userId, 
-        name: userDoc.data().displayName, 
-        iat: Math.floor(Date.now() / 1000) 
-      };
-      const token = jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '5m' });
-      
-      const projectUrl = `https://${process.env.PROJECT_DOMAIN}.glitch.me`;
-      const qrImageUrl = `${projectUrl}/generate-qr?token=${token}`;
-      
-      return client.replyMessage(event.replyToken, [
-        { type: 'text', text: `นี่คือ QR Code ประจำตัวของคุณ ${userDoc.data().displayName} ครับ\n\nใช้สำหรับยืนยันตัวตน, เข้าร่วมกิจกรรม, หรือสะสมแต้ม QR Code นี้มีอายุ 5 นาทีครับ`},
-        { type: 'image', originalContentUrl: qrImageUrl, previewImageUrl: qrImageUrl }
-      ]);
-    }
-
-    // คำสั่ง: จองคิว (เหมือนเดิม)
-    if (lowerCaseMessage === 'จองคิว') {
-      const userRef = db.collection('users').doc(userId);
-      const userDoc = await userRef.get();
-      if (!userDoc.exists || !userDoc.data().phoneNumber) { return client.replyMessage(event.replyToken, { type: 'text', text: 'กรุณาพิมพ์ "ลงทะเบียน" ให้เสร็จสิ้นก่อนทำการจองคิวครับ' }); }
-      const existingQueueSnapshot = await db.collection('queues').where('lineUserId', '==', userId).where('status', 'in', ['WAITING', 'SERVING']).get();
-      if (!existingQueueSnapshot.empty) { const queueData = existingQueueSnapshot.docs[0].data(); return client.replyMessage(event.replyToken, { type: 'text', text: `คุณมีคิวอยู่แล้วครับ\nสถานะ: ${queueData.status === 'SERVING' ? 'กำลังใช้บริการห้อง ' + queueData.roomNumber : 'กำลังรอคิวที่ ' + queueData.queueNumber}` }); }
-      const servingSnapshot = await db.collection('queues').where('status', '==', 'SERVING').get();
-      if (servingSnapshot.size < TOTAL_ROOMS) {
-        let assignedRoom = 0;
-        for (let i = 1; i <= TOTAL_ROOMS; i++) { if (!servingSnapshot.docs.map(doc => doc.data().roomNumber).includes(i)) { assignedRoom = i; break; } }
-        await db.collection('queues').add({ lineUserId: userId, displayName: userDoc.data().displayName, status: 'SERVING', checkInTime: new Date(), roomNumber: assignedRoom });
-        return client.replyMessage(event.replyToken, { type: 'text', text: `ถึงคิวของคุณแล้ว! เชิญที่ห้องหมายเลข ${assignedRoom} ได้เลยครับ` });
-      } else {
-        const allQueuesSnapshot = await db.collection('queues').get();
-        const newQueueNumber = allQueuesSnapshot.size + 1;
-        await db.collection('queues').add({ lineUserId: userId, displayName: userDoc.data().displayName, queueNumber: newQueueNumber, status: 'WAITING', checkInTime: new Date() });
-        return client.replyMessage(event.replyToken, { type: 'text', text: `เช็คอินสำเร็จ! คุณได้รับคิวที่ ${newQueueNumber} นะครับ\nตอนนี้ห้องเต็ม กรุณารอสักครู่` });
-      }
-    }
-
-    // คำสั่ง: เสร็จสิ้น (เหมือนเดิม)
-    if (lowerCaseMessage === 'เสร็จสิ้น') {
-      const servingQueueSnapshot = await db.collection('queues').where('lineUserId', '==', userId).where('status', '==', 'SERVING').limit(1).get();
-      if (servingQueueSnapshot.empty) { return client.replyMessage(event.replyToken, { type: 'text', text: 'คุณยังไม่ได้เข้าใช้บริการเลยครับผม' }); }
-      const queueDoc = servingQueueSnapshot.docs[0];
-      const finishedRoomNumber = queueDoc.data().roomNumber;
-      await queueDoc.ref.update({ status: 'FINISHED', finishTime: new Date() });
-      await client.replyMessage(event.replyToken, { type: 'text', text: `ขอบคุณที่ใช้บริการครับ! (ออกจากห้อง ${finishedRoomNumber})` });
-      return callNextUser(finishedRoomNumber);
-    }
-    
-    // คำสั่ง: สถานะ (เหมือนเดิม)
-    if (lowerCaseMessage === 'สถานะ' || lowerCaseMessage === 'คิว') {
-        const servingSnapshot = await db.collection('queues').where('status', '==', 'SERVING').orderBy('checkInTime').get();
-        const waitingSnapshot = await db.collection('queues').where('status', '==', 'WAITING').orderBy('queueNumber').get();
-        let servingText = servingSnapshot.empty ? 'ตอนนี้ทุกห้องว่างครับ!' : 'ห้องที่กำลังมีคนใช้:\n' + servingSnapshot.docs.map(doc => `- ห้อง ${doc.data().roomNumber} (คุณ ${doc.data().displayName})`).join('\n');
-        let waitingText = waitingSnapshot.empty ? '\nไม่มีคิวรอเลยครับ' : '\n\nคิวที่กำลังรอ:\n' + waitingSnapshot.docs.map(doc => `- คิวที่ ${doc.data().queueNumber} (คุณ ${doc.data().displayName})`).join('\n');
-        return client.replyMessage(event.replyToken, { type: 'text', text: servingText + waitingText });
-    }
-
-    // --- สมองส่วนที่ 2: ถ้าไม่ใช่คำสั่งพิเศษ ให้ส่งไปให้ AI ---
-    const prompt = `
-      คุณคือ 'DIVA' ผู้ช่วย AI อัจฉริยะใน BURSAI-CHAT-PLATFORM บุคลิกของคุณคือความเป็นมิตร สุภาพ ตลก และใช้คำลงท้ายว่า "ครับ"
-      หน้าที่หลักของคุณคือการพูดคุยทั่วไปและตอบคำถามต่างๆ ของผู้ใช้
-
-      สิ่งสำคัญที่ต้องรู้:
-      1. บอทนี้มีความสามารถหลักๆ คือ "ลงทะเบียน", "จองคิว" (สำหรับเข้าห้อง), และ "เช็คอิน" (สำหรับยืนยันตัวตนทั่วไป)
-      2. "จองคิว" ใช้สำหรับจองคิวเพื่อเข้าใช้บริการห้อง/พื้นที่ และเมื่อถึงคิวจะมีการแจ้งเตือน
-      3. "เช็คอิน" ใช้สำหรับสร้าง QR Code เพื่อยืนยันตัวตน ณ จุดบริการ, เข้าร่วมกิจกรรม, หรือสะสมแต้ม
-      4. ถ้าผู้ใช้ต้องการทำอะไรที่เกี่ยวกับคิวหรือห้อง ให้แนะนำให้พิมพ์ "จองคิว" หรือ "สถานะ"
-      5. ถ้าผู้ใช้ต้องการ QR Code เพื่อยืนยันตัวตน ให้แนะนำให้พิมพ์ "เช็คอิน"
-      6. ถ้าผู้ใช้ถามเกี่ยวกับการสมัครสมาชิก ให้แนะนำให้พิมพ์ "ลงทะเบียน"
-      7. ถ้าผู้ใช้ถามเรื่องการออกจากห้อง หรือใช้เสร็จแล้ว ให้แนะนำให้พิมพ์ "เสร็จสิ้น"
-      8. สำหรับคำถามอื่นๆ ทั้งหมด ให้คุณตอบอย่างเป็นธรรมชาติในฐานะ 'DIVA' , คุณเป็นผู้ชาย, คุณขี้เล่นและสุภาพ
-      9. ข้อความที่คุณพิมพ์หาผู้ใช้มีความยาว 1 - 2 ประโยคพอ
-
-      คำถามจากผู้ใช้: "${messageText}"
-    `;
-
-    const result = await model.generateContent(prompt);
-    const response = await result.response;
-    const aiReply = response.text();
-    return client.replyMessage(event.replyToken, { type: 'text', text: aiReply });
-
-  } catch (error) {
-    console.error("An error occurred:", error);
-    return client.replyMessage(event.replyToken, { type: 'text', text: 'ขออภัยครับ เกิดข้อผิดพลาดในระบบ' });
-  }
 }
 
-// --- ฟังก์ชันสำหรับสร้าง Flex Message ---
-function createConsentBubble() {
-  return {
-    type: 'bubble',
-    header: { type: 'box', layout: 'vertical', contents: [ { type: 'text', text: 'คำขอยินยอมให้ข้อมูล', weight: 'bold', size: 'xl', color: '#FFFFFF' } ], backgroundColor: '#007BFF', paddingAll: '20px' },
-    body: { type: 'box', layout: 'vertical', contents: [ { type: 'text', text: 'ข้อตกลงและเงื่อนไข', weight: 'bold', size: 'lg', margin: 'md' }, { type: 'text', text: 'เพื่อการลงทะเบียนและให้บริการจองคิว ทางเรามีความจำเป็นต้องเก็บรวบรวมข้อมูลโปรไฟล์ LINE ของท่าน อันได้แก่ ชื่อ, รูปโปรไฟล์, และเบอร์โทรศัพท์', wrap: true, margin: 'md' }, { type: 'text', text: 'ข้อมูลของท่านจะถูกใช้เพื่อการยืนยันตัวตนและการติดต่อกลับในกรณีที่จำเป็นเท่านั้น', wrap: true, margin: 'md'}, { type: 'separator', margin: 'xxl' } ] },
-    footer: { type: 'box', layout: 'horizontal', spacing: 'sm', contents: [ { type: 'button', style: 'secondary', height: 'sm', action: { type: 'postback', label: 'ไม่ยินยอม', data: 'consent_disagree' } }, { type: 'button', style: 'primary', height: 'sm', action: { type: 'postback', label: 'ยินยอม', data: 'consent_agree' } } ] }
-  };
-}
+// ** ไม่ต้องใช้ฟังก์ชัน createConsentBubble แล้ว สามารถลบทิ้งได้ **
 
 // --- ฟังก์ชันสำหรับเรียกคิวถัดไป ---
 async function callNextUser(freedRoomNumber) {

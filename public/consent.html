@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ข้อตกลงและเงื่อนไข</title>
+    <style>
+        body { font-family: sans-serif; padding: 20px; max-width: 800px; margin: auto; }
+        .content { border: 1px solid #ccc; padding: 20px; border-radius: 8px; margin-bottom: 20px; }
+        .actions { text-align: center; }
+        .button { display: inline-block; padding: 10px 20px; margin: 5px; border-radius: 5px; text-decoration: none; color: white; font-weight: bold; }
+        .agree { background-color: #28a745; }
+        .disagree { background-color: #6c757d; }
+    </style>
+</head>
+<body>
+    <h1>ข้อตกลงและเงื่อนไขการใช้บริการ</h1>
+    <div class="content">
+        <h2>คำนำ</h2>
+        <p>ยินดีต้อนรับสู่บริการของเรา... (นี่คือส่วนที่คุณต้องใส่ข้อความยาวๆ ของคุณ)</p>
+        <h2>ข้อ 1: การเก็บรวบรวมข้อมูล</h2>
+        <p>เพื่อการลงทะเบียนและให้บริการจองคิว ทางเรามีความจำเป็นต้องเก็บรวบรวมข้อมูลโปรไฟล์ LINE ของท่าน อันได้แก่ ชื่อ, รูปโปรไฟล์, และเบอร์โทรศัพท์ ข้อมูลของท่านจะถูกใช้เพื่อการยืนยันตัวตนและการติดต่อกลับในกรณีที่จำเป็นเท่านั้น...</p>
+        <h2>ข้อ 2: การใช้งานข้อมูล</h2>
+        <p>เราจะนำข้อมูลของท่านไปใช้เพื่อ... (ใส่รายละเอียดเพิ่มเติม)</p>
+        <!-- ใส่ข้อความยาวๆ ของคุณที่นี่ได้เลย -->
+    </div>
+    <div class="actions">
+        <a href="#" id="agree-btn" class="button agree">ยินยอม</a>
+        <a href="#" id="disagree-btn" class="button disagree">ไม่ยินยอม</a>
+    </div>
+    <script>
+        // สคริปต์สำหรับอ่าน Token จาก URL แล้วสร้างลิงก์ที่ถูกต้อง
+        document.addEventListener('DOMContentLoaded', () => {
+            const urlParams = new URLSearchParams(window.location.search);
+            const token = urlParams.get('token');
+            if (token) {
+                document.getElementById('agree-btn').href = `/api/consent-response?choice=agree&token=${token}`;
+                document.getElementById('disagree-btn').href = `/api/consent-response?choice=disagree&token=${token}`;
+            } else {
+                document.body.innerHTML = '<h1>ข้อผิดพลาด: ไม่พบ Token</h1>';
+            }
+        });
+    </script>
+</body>
+</html>
