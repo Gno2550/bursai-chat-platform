@@ -5,6 +5,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ข้อตกลงและเงื่อนไขการใช้บริการ - BURSAI CHAT PLATFORM</title>
     <style>
+      /* --- เพิ่ม CSS สำหรับปุ่มใหม่ --- */
+        html {
+            scroll-behavior: smooth; /* ทำให้การเลื่อนหน้าจอนุ่มนวล */
+        }
         body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; line-height: 1.6; padding: 20px; max-width: 800px; margin: auto; color: #333; }
         h1, h2, h3 { color: #1a1a1a; }
         h1 { text-align: center; border-bottom: 2px solid #eee; padding-bottom: 15px; margin-bottom: 25px; }
@@ -15,13 +19,36 @@
         .disagree { background-color: #6c757d; }
         .last-updated { text-align: center; color: #888; font-size: 0.9em; margin-bottom: 20px; }
         li { margin-bottom: 10px; }
-    </style>
+         .scroll-button-container {
+            text-align: center;
+            margin-bottom: 25px;
+        }
+        .scroll-button {
+            background: none;
+            border: 1px solid #007BFF;
+            color: #007BFF;
+            padding: 8px 15px;
+            border-radius: 20px;
+            cursor: pointer;
+            font-size: 0.9em;
+            font-weight: bold;
+        }
+        .scroll-button:hover {
+            background-color: #e7f3ff;
+        }  
+  
+  
+  </style>
 </head>
 <body>
 
     <h1>ข้อตกลงและเงื่อนไข & นโยบายความเป็นส่วนตัว</h1>
     <p class="last-updated">ปรับปรุงล่าสุด: 19 มิถุนายน 2568</p>
-
+    
+    <div class="scroll-button-container">
+        <button id="scroll-to-bottom-btn" class="scroll-button">▼ เลื่อนไปยังส่วนการให้ความยินยอม</button>
+    </div>
+  
     <div class="content">
         <h3>บทนำ</h3>
         <p>ยินดีต้อนรับสู่บริการ <strong>BURSAI CHAT PLATFORM</strong> ผ่านแชทบอท "DIVA" บนแอปพลิเคชัน LINE ("บริการ") บริการนี้จัดทำขึ้นเพื่ออำนวยความสะดวกแก่ท่านในการลงทะเบียน, จองคิว, และยืนยันตัวตน</p>
@@ -88,11 +115,11 @@
 
     </div>
 
-    <div class="actions">
+    <div id="actions" class="actions">
         <a href="#" id="agree-btn" class="button agree">ยินยอมและดำเนินการต่อ</a>
         <a href="#" id="disagree-btn" class="button disagree">ไม่ยินยอม</a>
     </div>
-
+    
     <script>
         document.addEventListener('DOMContentLoaded', () => {
             const urlParams = new URLSearchParams(window.location.search);
@@ -104,7 +131,14 @@
             } else {
                 document.body.innerHTML = '<h1>เกิดข้อผิดพลาด</h1><p>ไม่พบข้อมูลที่จำเป็นสำหรับดำเนินการต่อ กรุณาลองอีกครั้งจากแอปพลิเคชัน LINE</p>';
             }
+          // --- ** 3. เพิ่ม JavaScript สำหรับปุ่มเลื่อน ** ---
+            const scrollButton = document.getElementById('scroll-to-bottom-btn');
+            scrollButton.addEventListener('click', () => {
+                // สั่งให้เลื่อนหน้าจอไปยัง div ที่มี id="actions"
+                actionsDiv.scrollIntoView({ behavior: 'smooth' });
+            });
         });
+      
     </script>
 
 </body>
