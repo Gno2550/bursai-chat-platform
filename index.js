@@ -8,6 +8,7 @@ const admin = require('firebase-admin');
 const jwt = require('jsonwebtoken'); 
 const QRCode = require('qrcode');
 const { GoogleGenerativeAI } = require('@google/generative-ai');
+const bcrypt = require('bcryptjs'); 
 
 // --- Initializations ---
 const serviceAccount = require('./serviceAccountKey.json');
@@ -26,6 +27,41 @@ app.use(express.static('public'));
 app.post('/webhook', line.middleware(config), (req, res) => { Promise.all(req.body.events.map(handleEvent)).then((result) => res.json(result)).catch((err) => { console.error("Webhook Error:", err); res.status(500).end(); }); });
 app.use(express.json());
 
+// --- Staff API Routes ---
+app.post('/api/staff-register', async (req, res) => {
+    try {
+        const { displayName, username, password, orgSecret } = req.body;
+        if (!displayName || !username || !password || !orgSecret) { return res.status(400).json({ success: false, message: 'กรุณากรอกข้อมูลให้ครบถ้วน' }); }
+        if (orgSecret !== process.env.ORGANIZATION_SECRET) { return res.status(403).json({ success: false, message: 'รหัสลับองค์กรไม่ถูกต้อง' }); }
+        const existingStaff = await db.collection('staffs').where('username', '==', username).get();
+        if (!existingStaff.empty) { return res.status(409).json({ success: false, message: 'Username นี้มีผู้ใช้งานแล้ว' }); }
+        const hashedPassword = await bcrypt.hash(password, 10);
+        await db.collection('staffs').add({ username, password: hashedPassword, displayName, role: 'operator', registeredAt: new Date() });
+        res.status(201).json({ success: true, message: 'สมัครสมาชิกสำเร็จ!' });
+    } catch (error) {
+        console.error("Staff Registration Error:", error);
+        res.status(500).json({ success: false, message: 'เกิดข้อผิดพลาดในระบบ' });
+    }
+});
+
+app.post('/api/staff-login', async (req, res) => {
+    try {
+        const { username, password } = req.body;
+        if (!username || !password) { return res.status(400).json({ success: false, message: 'กรุณากรอก Username และ Password' }); }
+        const staffQuery = await db.collection('staffs').where('username', '==', username).limit(1).get();
+        if (staffQuery.empty) { return res.status(401).json({ success: false, message: 'Username หรือ Password ไม่ถูกต้อง' }); }
+        const staffDoc = staffQuery.docs[0];
+        const staffData = staffDoc.data();
+        const isPasswordMatch = await bcrypt.compare(password, staffData.password);
+        if (!isPasswordMatch) { return res.status(401).json({ success: false, message: 'Username หรือ Password ไม่ถูกต้อง' }); }
+        const staffToken = jwt.sign({ staffId: staffDoc.id, staffName: staffData.displayName }, process.env.JWT_SECRET, { expiresIn: '8h' });
+        res.json({ success: true, message: 'ล็อกอินสำเร็จ!', token: staffToken, staffName: staffData.displayName });
+    } catch (error) {
+        console.error("Staff Login Error:", error);
+        res.status(500).json({ success: false, message: 'เกิดข้อผิดพลาดในระบบ' });
+    }
+});
+
 // Endpoint สร้างภาพ QR Code
 app.get('/generate-qr', async (req, res) => {
   try {
@@ -42,21 +78,27 @@ app.get('/generate-qr', async (req, res) => {
 
 // Endpoint ตรวจสอบ QR Code
 app.post('/api/verify-check-in', async (req, res) => {
-  res.set('Access-Control-Allow-Origin', '*');
-  try {
-    const { token } = req.body;
-    if (!token) { return res.status(400).json({ success: false, message: 'ไม่พบ Token' }); }
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    const userId = decoded.uid;
-    const displayName = decoded.name;
-    const checkinEventRef = db.collection('checkin_events').doc(); 
-    await checkinEventRef.set({ userId: userId, displayName: displayName, status: 'CHECKED_IN', checkInTime: new Date(), scannedBy: 'staff_01' });
-    res.json({ success: true, message: `เช็คอินสำเร็จ!\nผู้ใช้: ${displayName}` });
-  } catch (error) {
-    if (error.name === 'TokenExpiredError') { res.status(401).json({ success: false, message: 'QR Code หมดอายุแล้ว!' }); }
-    else if (error.name === 'JsonWebTokenError') { res.status(401).json({ success: false, message: 'QR Code ไม่ถูกต้อง!' }); }
-    else { console.error("Verify Check-in Error:", error); res.status(500).json({ success: false, message: 'เกิดข้อผิดพลาดในระบบ' }); }
-  }
+    res.set('Access-Control-Allow-Origin', '*');
+    try {
+        const authHeader = req.headers.authorization;
+        if (!authHeader || !authHeader.startsWith('Bearer ')) { return res.status(403).json({ success: false, message: 'ไม่ได้รับอนุญาต (No staff token)' }); }
+        const staffToken = authHeader.split(' ')[1];
+        const staffDecoded = jwt.verify(staffToken, process.env.JWT_SECRET);
+        const staffName = staffDecoded.staffName;
+
+        const { token } = req.body;
+        if (!token) { return res.status(400).json({ success: false, message: 'ไม่พบ Token ของผู้ใช้' }); }
+        const decoded = jwt.verify(token, process.env.JWT_SECRET);
+        const userId = decoded.uid;
+        const displayName = decoded.name;
+        const checkinEventRef = db.collection('checkin_events').doc();
+        await checkinEventRef.set({ userId, displayName, status: 'CHECKED_IN', checkInTime: new Date(), scannedBy: staffName });
+        res.json({ success: true, message: `เช็คอินสำเร็จ!\nผู้ใช้: ${displayName}` });
+    } catch (error) {
+        if (error.name === 'TokenExpiredError') { res.status(401).json({ success: false, message: 'QR Code หมดอายุแล้ว!' }); }
+        else if (error.name === 'JsonWebTokenError') { res.status(401).json({ success: false, message: 'QR Code ไม่ถูกต้อง!' }); }
+        else { console.error("Verify Check-in Error:", error); res.status(500).json({ success: false, message: 'เกิดข้อผิดพลาดในระบบ' }); }
+    }
 });
 
 // --- ** API Endpoint ใหม่สำหรับจัดการการยินยอมจากหน้าเว็บ ** ---
