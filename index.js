@@ -62,11 +62,8 @@ app.post('/api/verify-check-in', async (req, res) => {
   }
 });
 
-
-// --- ** ส่วนจัดการ Logic หลักของบอท (handleEvent) - จัดลำดับใหม่ ** ---
+// --- Event Handler ---
 async function handleEvent(event) {
-
-  // --- 1. จัดการ Event ประเภท Postback ---
   if (event.type === 'postback') {
     const data = event.postback.data;
     const userId = event.source.userId;
@@ -74,7 +71,7 @@ async function handleEvent(event) {
       await db.collection('users').doc(userId).set({ consentGiven: true, consentTimestamp: new Date() }, { merge: true });
       return client.replyMessage(event.replyToken, {
         type: 'text',
-        text: 'ขอบคุณที่ยินยอมครับ กรุณาแชร์เบอร์โทรศัพท์ของท่านเพื่อลงทะเบียนให้สำเร็จ ! โดยกดปุ่มด้านล่าง หรือพิมพ์เบอร์โทร 10 หลักของท่าน (เช่น 0812345678) เพื่อยืนยันครับ',
+        text: 'ขอบคุณที่ยินยอมครับ กรุณาแชร์เบอร์โทรศัพท์ของท่านเพื่อลงทะเบียนต่อ โดยกดปุ่มด้านล่าง หรือพิมพ์เบอร์โทร 10 หลักของท่าน (เช่น 0812345678) เพื่อยืนยันครับ',
         quickReply: { items: [ { type: 'action', action: { type: 'message', label: '📱 แชร์เบอร์โทรศัพท์', text: 'นี่คือเบอร์โทรศัพท์ของฉัน' }, "inputOption": "openContact" } ] }
       });
     } else if (data === 'consent_disagree') {
@@ -83,48 +80,48 @@ async function handleEvent(event) {
     return Promise.resolve(null);
   }
 
-  // --- 2. ถ้าไม่ใช่ Message Event ก็ไม่ต้องทำอะไร ---
-  if (event.type !== 'message') {
-    return Promise.resolve(null);
-  }
-
+  if (event.type !== 'message') { return Promise.resolve(null); }
   const userId = event.source.userId;
 
- if (event.message.type === 'contact') {
+  if (event.message.type === 'contact') {
       const phoneNumber = event.message.phoneNumber;
       const profile = await client.getProfile(userId);
       await db.collection('users').doc(userId).set({ displayName: profile.displayName, pictureUrl: profile.pictureUrl, phoneNumber: phoneNumber, registeredAt: new Date() }, { merge: true });
-      //  console.log ไว้เพื่อดูว่ามันทำงาน
       console.log(`Contact message received and saved for user ${userId}`);
       return Promise.resolve(null);
   }
-  // --- 4. ถ้าเป็น Message ประเภทอื่นที่ไม่ใช่ Text ก็ไม่ต้องทำอะไร ---
-  if (event.message.type !== 'text') {
-    return Promise.resolve(null);
-  }
+  
+  if (event.message.type !== 'text') { return Promise.resolve(null); }
 
-  // --- 5. จัดการ Message ประเภท Text ---
   const messageText = event.message.text.trim();
   const lowerCaseMessage = messageText.toLowerCase();
 
   try {
-    
-     if (messageText === 'นี่คือเบอร์โทรศัพท์ของฉัน') {
+    if (messageText === 'นี่คือเบอร์โทรศัพท์ของฉัน') {
         const userRef = db.collection('users').doc(userId);
-        const doc = await userRef.get();
-        // ตรวจสอบให้แน่ใจว่าเบอร์โทรถูกบันทึกไปแล้วจริงๆ (จาก contact message)
+        // เพิ่ม await เพื่อให้รอการดึงข้อมูลเสร็จก่อน
+        const doc = await userRef.get(); 
         if (doc.exists && doc.data().phoneNumber) {
              return client.replyMessage(event.replyToken, {
                 type: 'text',
                 text: `ลงทะเบียนสำเร็จ! ยินดีต้อนรับคุณ ${doc.data().displayName} (เบอร์โทร: ${doc.data().phoneNumber})`
             });
         } else {
-            // กรณีที่ text มาถึงก่อน contact ให้รอสักครู่แล้วค่อยตอบ
-            // (นี่เป็นวิธีแก้ขั้นสูง แต่ตอนนี้ให้ตอบแบบนี้ไปก่อน)
-            return client.replyMessage(event.replyToken, { type: 'text', text: 'กำลังบันทึกข้อมูลเบอร์โทรศัพท์... ขอบคุณครับ' });
+            // อาจจะเกิดกรณีที่ text มาถึงก่อน contact จริงๆ
+            // เราจะให้เวลา 2 วินาทีแล้วลองเช็คอีกครั้ง
+            await new Promise(resolve => setTimeout(resolve, 2000));
+            const freshDoc = await userRef.get();
+            if (freshDoc.exists && freshDoc.data().phoneNumber) {
+                return client.replyMessage(event.replyToken, {
+                    type: 'text',
+                    text: `ลงทะเบียนสำเร็จ! ยินดีต้อนรับคุณ ${freshDoc.data().displayName} (เบอร์โทร: ${freshDoc.data().phoneNumber})`
+                });
+            } else {
+                 return client.replyMessage(event.replyToken, { type: 'text', text: 'กำลังบันทึกข้อมูล... ได้รับข้อความแล้วครับ' });
+            }
         }
+    }
     
-    // --- จัดการการพิมพ์เบอร์โทร ---
     const phoneRegex = /^0\d{9}$/;
     if (phoneRegex.test(messageText)) {
       const userRef = db.collection('users').doc(userId);
@@ -132,15 +129,12 @@ async function handleEvent(event) {
       if (doc.exists && doc.data().consentGiven && !doc.data().phoneNumber) {
         const profile = await client.getProfile(userId);
         await userRef.set({ displayName: profile.displayName, pictureUrl: profile.pictureUrl, phoneNumber: messageText, registeredAt: new Date() }, { merge: true });
-        // ตอบกลับว่าลงทะเบียนสำเร็จ
         return client.replyMessage(event.replyToken, { type: 'text', text: `ลงทะเบียนสำเร็จ! ยินดีต้อนรับคุณ ${profile.displayName} (เบอร์โทร: ${messageText})` });
       }
     }
 
-    // --- จัดการคำสั่งพิเศษอื่นๆ ---
     if (lowerCaseMessage === '/help') { return Promise.resolve(null); }
     
-    // คำสั่ง: ลงทะเบียน
     if (lowerCaseMessage === 'ลงทะเบียน') {
       const userRef = db.collection('users').doc(userId);
       const doc = await userRef.get();
@@ -150,7 +144,6 @@ async function handleEvent(event) {
       return client.replyMessage(event.replyToken, { type: 'flex', altText: 'ข้อความขอความยินยอมในการให้ข้อมูล', contents: createConsentBubble() });
     }
 
-    // คำสั่ง: เช็คอิน
     if (lowerCaseMessage === 'เช็คอิน') {
       const servingQueueSnapshot = await db.collection('queues').where('lineUserId', '==', userId).where('status', '==', 'SERVING').limit(1).get();
       if (servingQueueSnapshot.empty) {
@@ -170,7 +163,6 @@ async function handleEvent(event) {
       ]);
     }
 
-    // คำสั่ง: จองคิว
     if (lowerCaseMessage === 'จองคิว') {
       const userRef = db.collection('users').doc(userId);
       const userDoc = await userRef.get();
@@ -191,7 +183,6 @@ async function handleEvent(event) {
       }
     }
 
-    // คำสั่ง: เสร็จสิ้น
     if (lowerCaseMessage === 'เสร็จสิ้น') {
       const servingQueueSnapshot = await db.collection('queues').where('lineUserId', '==', userId).where('status', '==', 'SERVING').limit(1).get();
       if (servingQueueSnapshot.empty) { return client.replyMessage(event.replyToken, { type: 'text', text: 'คุณยังไม่ได้เข้าใช้บริการเลยครับผม' }); }
@@ -202,7 +193,6 @@ async function handleEvent(event) {
       return callNextUser(finishedRoomNumber);
     }
     
-    // คำสั่ง: สถานะ
     if (lowerCaseMessage === 'สถานะ' || lowerCaseMessage === 'คิว') {
         const servingSnapshot = await db.collection('queues').where('status', '==', 'SERVING').orderBy('checkInTime').get();
         const waitingSnapshot = await db.collection('queues').where('status', '==', 'WAITING').orderBy('queueNumber').get();
@@ -211,11 +201,9 @@ async function handleEvent(event) {
         return client.replyMessage(event.replyToken, { type: 'text', text: servingText + waitingText });
     }
 
-    // --- สมองส่วนที่ 2: ถ้าไม่ใช่คำสั่งพิเศษ ให้ส่งไปให้ AI ---
     const prompt = `
       คุณคือ 'DIVA' ผู้ช่วย AI อัจฉริยะใน BURSAI-CHAT-PLATFORM บุคลิกของคุณคือความเป็นมิตร สุภาพ ตลก และใช้คำลงท้ายว่า "ครับ"
       หน้าที่หลักของคุณคือการพูดคุยทั่วไปและตอบคำถามต่างๆ ของผู้ใช้
-
       สิ่งสำคัญที่ต้องรู้:
       1. บอทนี้มีความสามารถพิเศษในการ "ลงทะเบียน", "จองคิว", "เสร็จสิ้น", "เช็คอิน" และดู "สถานะ" คิว
       2. ถ้าผู้ใช้ถามเกี่ยวกับการสมัครสมาชิก ให้แนะนำให้พิมพ์ "ลงทะเบียน"
@@ -225,10 +213,8 @@ async function handleEvent(event) {
       6. ถ้าผู้ใช้ต้องการยืนยันตัวตน, แสดง QR Code, หรือเข้างาน ให้แนะนำให้พิมพ์ "เช็คอิน"
       7. สำหรับคำถามอื่นๆ ทั้งหมด ให้คุณตอบอย่างเป็นธรรมชาติในฐานะ 'DIVA' , คุณเป็นผู้ชาย, คุณขี้เล่นและสุภาพ
       8. ข้อความที่คุณพิมพ์หาผู้ใช้มีความยาว 1 - 2 ประโยคพอ
-
       คำถามจากผู้ใช้: "${messageText}"
     `;
-
     const result = await model.generateContent(prompt);
     const response = await result.response;
     const aiReply = response.text();
@@ -240,7 +226,6 @@ async function handleEvent(event) {
   }
 }
 
-// --- ** 6. ฟังก์ชันสำหรับสร้าง Flex Message ** ---
 function createConsentBubble() {
   return {
     type: 'bubble',
@@ -250,7 +235,6 @@ function createConsentBubble() {
   };
 }
 
-// --- ** 7. ฟังก์ชันสำหรับเรียกคิวถัดไป ** ---
 async function callNextUser(freedRoomNumber) {
     const nextUserSnapshot = await db.collection('queues').where('status', '==', 'WAITING').orderBy('queueNumber').limit(1).get();
     if (nextUserSnapshot.empty) {
@@ -265,7 +249,6 @@ async function callNextUser(freedRoomNumber) {
     return client.pushMessage(nextUserData.lineUserId, notificationMessage);
 }
 
-// --- ** 8. เริ่มการทำงานของเซิร์ฟเวอร์ ** ---
 const port = process.env.PORT || 3000;
 app.listen(port, () => {
   console.log(`Bursai Flexible Bot is listening on port ${port}`);
