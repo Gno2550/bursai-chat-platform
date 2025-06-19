@@ -39,30 +39,21 @@ app.use(express.json());
 
 // --- ** 4. API Routes ทั้งหมด ** ---
 
-// Endpoint สำหรับสร้างภาพ QR Code แบบสดๆ (แก้ไขแล้ว)
+// Endpoint สำหรับสร้างภาพ QR Code แบบสดๆ
 app.get('/generate-qr', async (req, res) => {
   try {
-    const { token } = req.query; // รับ token จาก URL
-    if (!token) {
-      return res.status(400).send('Token is required');
-    }
-
-    // *** นี่คือส่วนที่แก้ไข ***
-    // เราจะไม่ตรวจสอบ (verify) token ที่นี่แล้ว
-    // ปล่อยให้ Endpoint /api/verify-check-in เป็นคนตรวจสอบเอง
-    // หน้าที่ของ Endpoint นี้คือ "สร้างภาพ" จากข้อมูลที่ได้รับมาเท่านั้น
-    
+    const { token } = req.query;
+    if (!token) { return res.status(400).send('Token is required'); }
     const qrCodeBuffer = await QRCode.toBuffer(token);
     res.set('Content-Type', 'image/png');
     res.send(qrCodeBuffer);
-
   } catch (error) {
     console.error("QR Generation Error:", error);
     res.status(500).send('Error generating QR code');
   }
 });
 
-// Endpoint สำหรับตรวจสอบ QR Code จากหน้าเว็บสแกนเนอร์ (เหมือนเดิม)
+// Endpoint สำหรับตรวจสอบ QR Code จากหน้าเว็บสแกนเนอร์
 app.post('/api/verify-check-in', async (req, res) => {
   res.set('Access-Control-Allow-Origin', '*');
   try {
@@ -72,15 +63,25 @@ app.post('/api/verify-check-in', async (req, res) => {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
     const userId = decoded.uid;
     const displayName = decoded.name;
-    const checkinRef = db.collection('checkins').doc(userId);
-    const doc = await checkinRef.get();
+    const queueDocId = decoded.queueDocId;
 
-    if (doc.exists && doc.data().status === 'CHECKED_IN') {
-      return res.status(409).json({ success: false, message: `คุณ ${displayName} ได้ทำการเช็คอินไปแล้ว` });
+    if (!queueDocId) {
+      return res.status(400).json({ success: false, message: 'Token ไม่ถูกต้อง (ไม่มีข้อมูลคิว)' });
     }
 
-    await checkinRef.set({ displayName: displayName, status: 'CHECKED_IN', checkInTime: new Date(), scannedBy: 'staff_01' });
-    res.json({ success: true, message: `เช็คอินสำเร็จ!\nผู้ใช้: ${displayName}` });
+    const queueDocRef = db.collection('queues').doc(queueDocId);
+    const queueDoc = await queueDocRef.get();
+
+    if (!queueDoc.exists) { return res.status(404).json({ success: false, message: 'ไม่พบคิวนี้ในระบบ' }); }
+
+    const queueData = queueDoc.data();
+
+    if (queueData.checkedIn) { return res.status(409).json({ success: false, message: `คิวของคุณ ${displayName} ได้เช็คอินเข้าห้อง ${queueData.roomNumber} ไปแล้ว` }); }
+    if (queueData.status !== 'SERVING') { return res.status(403).json({ success: false, message: `ยังไม่ถึงคิวของคุณ ${displayName} กรุณารอสักครู่` }); }
+    
+    await queueDocRef.update({ checkedIn: true, checkedInAt: new Date(), scannedBy: 'staff_01' });
+    
+    res.json({ success: true, message: `เช็คอินสำเร็จ!\nผู้ใช้: ${displayName}\nห้อง: ${queueData.roomNumber}` });
 
   } catch (error) {
     if (error.name === 'TokenExpiredError') { res.status(401).json({ success: false, message: 'QR Code หมดอายุแล้ว!' }); }
@@ -91,50 +92,101 @@ app.post('/api/verify-check-in', async (req, res) => {
 
 
 // --- ** 5. ส่วนจัดการ Logic หลักของบอท (handleEvent) ** ---
-// (โค้ดส่วนนี้ทั้งหมดเหมือนเดิมทุกประการ)
 async function handleEvent(event) {
-  if (event.type !== 'message' || event.message.type !== 'text') {
+  
+  // --- จัดการ Event ประเภท Postback ก่อน (สำหรับปุ่มยินยอม) ---
+  if (event.type === 'postback') {
+    const data = event.postback.data;
+    const userId = event.source.userId;
+
+    if (data === 'consent_agree') {
+      await db.collection('users').doc(userId).set({ consentGiven: true, consentTimestamp: new Date() }, { merge: true });
+      return client.replyMessage(event.replyToken, {
+        type: 'text',
+        text: 'ขอบคุณที่ยินยอมครับ กรุณาแชร์เบอร์โทรศัพท์ของท่านเพื่อลงทะเบียนต่อ โดยกดปุ่มด้านล่าง หรือพิมพ์เบอร์โทร 10 หลักของท่าน (เช่น 0812345678) เพื่อยืนยันครับ',
+        quickReply: { items: [ { type: 'action', action: { type: 'camera' } }, { type: 'action', action: { type: 'cameraRoll' } }, { type: 'action', action: { type: 'location' } }, { type: 'action', action: { type: 'message', label: 'แชร์เบอร์โทรศัพท์', text: 'กรุณาแตะที่นี่เพื่อแชร์เบอร์โทร' }, "inputOption": "openContact" } ] }
+      });
+    } else if (data === 'consent_disagree') {
+      return client.replyMessage(event.replyToken, { type: 'text', text: 'ท่านได้ปฏิเสธการให้ข้อมูล ทางเราจึงไม่สามารถดำเนินการลงทะเบียนให้ท่านได้ ขออภัยในความไม่สะดวกครับ' });
+    }
+    return Promise.resolve(null);
+  }
+  
+  // ถ้าไม่ใช่ Message Event ก็ไม่ต้องทำอะไร
+  if (event.type !== 'message') {
     return Promise.resolve(null);
   }
 
   const userId = event.source.userId;
+
+  // --- จัดการ Message ประเภท Contact (แชร์เบอร์โทร) ---
+  if (event.message.type === 'contact') {
+      const phoneNumber = event.message.phoneNumber;
+      const profile = await client.getProfile(userId);
+      await db.collection('users').doc(userId).set({ displayName: profile.displayName, pictureUrl: profile.pictureUrl, phoneNumber: phoneNumber, registeredAt: new Date() }, { merge: true });
+      return client.replyMessage(event.replyToken, { type: 'text', text: `ลงทะเบียนสำเร็จ! ยินดีต้อนรับคุณ ${profile.displayName} (เบอร์โทร: ${phoneNumber})` });
+  }
+  
+  // ถ้าเป็น Message ประเภทอื่นที่ไม่ใช่ Text ก็ไม่ต้องทำอะไร
+  if (event.message.type !== 'text') {
+    return Promise.resolve(null);
+  }
+
+  // --- จัดการ Message ประเภท Text ---
   const messageText = event.message.text.trim();
   const lowerCaseMessage = messageText.toLowerCase();
 
   try {
-    if (lowerCaseMessage === '/help') {
-      return Promise.resolve(null); 
-    }
-    
-    // --- สมองส่วนที่ 1: ตรวจจับคำสั่งพิเศษ ---
-
-    // คำสั่ง: เช็คอิน (เพื่อรับ QR Code)
-    if (lowerCaseMessage === 'เช็คอิน') {
+    // --- จัดการการพิมพ์เบอร์โทร ---
+    const phoneRegex = /^0\d{9}$/;
+    if (phoneRegex.test(messageText)) {
       const userRef = db.collection('users').doc(userId);
-      const userDoc = await userRef.get();
-      if (!userDoc.exists) { return client.replyMessage(event.replyToken, { type: 'text', text: 'กรุณา "ลงทะเบียน" ก่อนทำการเช็คอินครับ' }); }
-
-      const payload = { uid: userId, name: userDoc.data().displayName, iat: Math.floor(Date.now() / 1000) };
-      const token = jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '5m' });
-      
-      const projectUrl = `https://${process.env.PROJECT_DOMAIN}.glitch.me`;
-      const qrImageUrl = `${projectUrl}/generate-qr?token=${token}`;
-      
-      return client.replyMessage(event.replyToken, [
-        { type: 'text', text: `นี่คือ QR Code สำหรับยืนยันตัวตนของคุณ ${userDoc.data().displayName} ครับ\n\nQR Code นี้มีอายุ 5 นาที กรุณาแสดงให้เจ้าหน้าที่เพื่อสแกนเข้าใช้บริการที่จองไว้ครับ`},
-        { type: 'image', originalContentUrl: qrImageUrl, previewImageUrl: qrImageUrl }
-      ]);
+      const doc = await userRef.get();
+      if (doc.exists && doc.data().consentGiven && !doc.data().phoneNumber) {
+        const profile = await client.getProfile(userId);
+        await userRef.set({ displayName: profile.displayName, pictureUrl: profile.pictureUrl, phoneNumber: messageText, registeredAt: new Date() }, { merge: true });
+        return client.replyMessage(event.replyToken, { type: 'text', text: `ลงทะเบียนสำเร็จ! ยินดีต้อนรับคุณ ${profile.displayName} (เบอร์โทร: ${messageText})` });
+      }
     }
+
+    // --- จัดการคำสั่งพิเศษ ---
+    if (lowerCaseMessage === '/help') { return Promise.resolve(null); }
     
-    // คำสั่ง: ลงทะเบียน
+    // คำสั่ง: ลงทะเบียน (Logic ใหม่)
     if (lowerCaseMessage === 'ลงทะเบียน') {
       const userRef = db.collection('users').doc(userId);
       const doc = await userRef.get();
-      if (doc.exists) { return client.replyMessage(event.replyToken, { type: 'text', text: 'คุณได้ลงทะเบียนไว้แล้วครับ' }); }
-      else { const profile = await client.getProfile(userId); await userRef.set({ displayName: profile.displayName, pictureUrl: profile.pictureUrl, registeredAt: new Date() }); return client.replyMessage(event.replyToken, { type: 'text', text: `ลงทะเบียนสำเร็จ! ยินดีต้อนรับคุณ ${profile.displayName}` }); }
+      if (doc.exists && doc.data().phoneNumber) {
+        return client.replyMessage(event.replyToken, { type: 'text', text: 'คุณได้ลงทะเบียนไว้เรียบร้อยแล้วครับ' });
+      }
+      return client.replyMessage(event.replyToken, {
+        type: 'flex',
+        altText: 'ข้อความขอความยินยอมในการให้ข้อมูล',
+        contents: createConsentBubble()
+      });
     }
 
-    // คำสั่ง: จองคิวใช้พื้นที่
+    // คำสั่ง: เช็คอิน
+    if (lowerCaseMessage === 'เช็คอิน') {
+      const servingQueueSnapshot = await db.collection('queues').where('lineUserId', '==', userId).where('status', '==', 'SERVING').limit(1).get();
+      if (servingQueueSnapshot.empty) {
+        const waitingQueueSnapshot = await db.collection('queues').where('lineUserId', '==', userId).where('status', '==', 'WAITING').get();
+        if (!waitingQueueSnapshot.empty) { return client.replyMessage(event.replyToken, { type: 'text', text: 'ยังไม่ถึงคิวของคุณครับ กรุณารอการแจ้งเตือนอีกครั้ง' }); }
+        else { return client.replyMessage(event.replyToken, { type: 'text', text: 'คุณยังไม่มีคิวที่ต้องเช็คอินครับ กรุณา "จองคิว" ก่อน' }); }
+      }
+      const queueDoc = servingQueueSnapshot.docs[0];
+      const queueData = queueDoc.data();
+      const payload = { uid: userId, name: queueData.displayName, queueDocId: queueDoc.id, iat: Math.floor(Date.now() / 1000) };
+      const token = jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '5m' });
+      const projectUrl = `https://${process.env.PROJECT_DOMAIN}.glitch.me`;
+      const qrImageUrl = `${projectUrl}/generate-qr?token=${token}`;
+      return client.replyMessage(event.replyToken, [
+        { type: 'text', text: `นี่คือ QR Code สำหรับเข้าใช้บริการห้องหมายเลข ${queueData.roomNumber} ครับ\n\nQR Code นี้มีอายุ 5 นาที กรุณาแสดงให้เจ้าหน้าที่เพื่อสแกนยืนยันครับ` },
+        { type: 'image', originalContentUrl: qrImageUrl, previewImageUrl: qrImageUrl }
+      ]);
+    }
+
+    // คำสั่ง: จองคิว
     if (lowerCaseMessage === 'จองคิว') {
       const userRef = db.collection('users').doc(userId);
       const userDoc = await userRef.get();
@@ -204,7 +256,17 @@ async function handleEvent(event) {
   }
 }
 
-// --- ฟังก์ชันสำหรับเรียกคิวถัดไป ---
+// --- ** 6. ฟังก์ชันสำหรับสร้าง Flex Message ** ---
+function createConsentBubble() {
+  return {
+    type: 'bubble',
+    header: { type: 'box', layout: 'vertical', contents: [ { type: 'text', text: 'คำขอยินยอมให้ข้อมูล', weight: 'bold', size: 'xl', color: '#FFFFFF' } ], backgroundColor: '#007BFF', paddingAll: '20px' },
+    body: { type: 'box', layout: 'vertical', contents: [ { type: 'text', text: 'ข้อตกลงและเงื่อนไข', weight: 'bold', size: 'lg', margin: 'md' }, { type: 'text', text: 'เพื่อการลงทะเบียนและให้บริการจองคิว ทางเรามีความจำเป็นต้องเก็บรวบรวมข้อมูลโปรไฟล์ LINE ของท่าน อันได้แก่ ชื่อ, รูปโปรไฟล์, และเบอร์โทรศัพท์', wrap: true, margin: 'md' }, { type: 'text', text: 'ข้อมูลของท่านจะถูกใช้เพื่อการยืนยันตัวตนและการติดต่อกลับในกรณีที่จำเป็นเท่านั้น', wrap: true, margin: 'md'}, { type: 'separator', margin: 'xxl' } ] },
+    footer: { type: 'box', layout: 'horizontal', spacing: 'sm', contents: [ { type: 'button', style: 'secondary', height: 'sm', action: { type: 'postback', label: 'ไม่ยินยอม', data: 'consent_disagree' } }, { type: 'button', style: 'primary', height: 'sm', action: { type: 'postback', label: 'ยินยอม', data: 'consent_agree' } } ] }
+  };
+}
+
+// --- ** 7. ฟังก์ชันสำหรับเรียกคิวถัดไป ** ---
 async function callNextUser(freedRoomNumber) {
     const nextUserSnapshot = await db.collection('queues').where('status', '==', 'WAITING').orderBy('queueNumber').limit(1).get();
     if (nextUserSnapshot.empty) {
@@ -219,7 +281,7 @@ async function callNextUser(freedRoomNumber) {
     return client.pushMessage(nextUserData.lineUserId, notificationMessage);
 }
 
-// --- Start Server ---
+// --- ** 8. เริ่มการทำงานของเซิร์ฟเวอร์ ** ---
 const port = process.env.PORT || 3000;
 app.listen(port, () => {
   console.log(`Bursai Flexible Bot is listening on port ${port}`);
