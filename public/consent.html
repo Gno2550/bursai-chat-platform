@@ -5,9 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ข้อตกลงและเงื่อนไขการใช้บริการ - BURSAI CHAT PLATFORM</title>
     <style>
-        /* --- 1. เพิ่ม CSS สำหรับทำให้การเลื่อนนุ่มนวล และเพิ่มพื้นที่ด้านล่าง --- */
         html {
-            scroll-behavior: smooth; 
+            scroll-behavior: smooth;
         }
         body { 
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; 
@@ -16,12 +15,9 @@
             max-width: 800px; 
             margin: auto; 
             color: #333;
-            /* เพิ่ม padding-bottom เพื่อไม่ให้เนื้อหาสุดท้ายถูกปุ่มลอยทับ */
             padding-bottom: 100px; 
         }
-        
-        /* --- CSS ส่วนอื่นๆ ของคุณ (เหมือนเดิม) --- */
-        h1, h2, h3 { color: #1a1a1a; }
+        h1, h2, h3, h4 { color: #1a1a1a; }
         h1 { text-align: center; border-bottom: 2px solid #eee; padding-bottom: 15px; margin-bottom: 25px; }
         .content { background-color: #f9f9f9; border: 1px solid #ddd; padding: 15px 25px; border-radius: 8px; margin-bottom: 20px; }
         .actions { text-align: center; margin-top: 30px; }
@@ -30,21 +26,14 @@
         .disagree { background-color: #6c757d; }
         .last-updated { text-align: center; color: #888; font-size: 0.9em; margin-bottom: 20px; }
         li { margin-bottom: 10px; }
-
-        /* --- 2. ลบ CSS ของปุ่มเก่าทิ้งไป --- */
-        /*
-        .scroll-button-container { ... }
-        .scroll-button { ... }
-        */
-
-        /* --- 3. เพิ่ม CSS สำหรับปุ่มลอย (Floating Action Button) --- */
+        
         #scroll-to-bottom-btn {
-            position: fixed;   /* ทำให้ลอยอยู่กับที่ */
-            bottom: 25px;      /* ห่างจากขอบล่าง */
-            right: 25px;       /* ห่างจากขอบขวา */
+            position: fixed;
+            bottom: 25px;
+            right: 25px;
             width: 56px;       
             height: 56px;
-            border-radius: 50%; /* ทำให้เป็นวงกลม */
+            border-radius: 50%;
             background-color: #007BFF;
             color: white;
             border: none;
@@ -53,10 +42,9 @@
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 28px; /* ขนาดของลูกศร */
+            font-size: 28px;
             transition: transform 0.2s ease-in-out, background-color 0.2s;
         }
-
         #scroll-to-bottom-btn:hover {
             background-color: #0056b3;
             transform: scale(1.1);
@@ -64,61 +52,105 @@
     </style>
 </head>
 <body>
-
-    <!-- 4. ลบ HTML ของปุ่มเก่าออกจากตำแหน่งเดิม -->
-    <!--
-    <div class="scroll-button-container">
-        <button id="scroll-to-bottom-btn" class="scroll-button">▼ เลื่อนไปยังส่วนการให้ความยินยอม</button>
-    </div>
-    -->
     
     <h1>ข้อตกลงและเงื่อนไข & นโยบายความเป็นส่วนตัว</h1>
     <p class="last-updated">ปรับปรุงล่าสุด: 19 มิถุนายน 2568</p>
   
     <div class="content">
-        <!-- เนื้อหาทั้งหมดของคุณ -->
-        <!-- ... -->
+        <h3>บทนำ</h3>
+        <p>ยินดีต้อนรับสู่บริการ <strong>BURSAI CHAT PLATFORM</strong> ผ่านแชทบอท "DIVA" บนแอปพลิเคชัน LINE ("บริการ") บริการนี้จัดทำขึ้นเพื่ออำนวยความสะดวกแก่ท่านในการลงทะเบียน, จองคิว, และยืนยันตัวตน</p>
+        <p>การคลิกปุ่ม "ยินยอม" ด้านล่าง ถือว่าท่านได้อ่าน, ทำความเข้าใจ, และยอมรับข้อตกลงและเงื่อนไขรวมถึงนโยบายความเป็นส่วนตัวฉบับนี้ทั้งหมดแล้ว หากท่านไม่ยอมรับข้อตกลงเหล่านี้ กรุณาคลิก "ไม่ยินยอม" และยุติการใช้งานบริการ</p>
     </div>
 
     <div class="content">
-        <!-- เนื้อหาทั้งหมดของคุณ -->
-        <!-- ... -->
+        <h2>ข้อกำหนดและเงื่อนไขการให้บริการ</h2>
+        
+        <h4>1. คำอธิบายบริการ</h4>
+        <p>บริการของเรามีความสามารถหลักดังต่อไปนี้:</p>
+        <ul>
+            <li><strong>การลงทะเบียน:</strong> ท่านสามารถสร้างบัญชีผู้ใช้เพื่อเข้าถึงบริการต่างๆ ของเรา</li>
+            <li><strong>การจองคิว:</strong> ท่านสามารถจองคิวเพื่อเข้าใช้บริการหรือพื้นที่ที่มีจำนวนจำกัด ระบบจะจัดการลำดับคิวและแจ้งเตือนเมื่อถึงคิวของท่าน</li>
+            <li><strong>การเช็คอิน:</strong> ท่านสามารถสร้าง QR Code ที่มีอายุจำกัด เพื่อใช้ในการยืนยันตัวตน ณ จุดบริการ, เข้าร่วมกิจกรรม, หรือวัตถุประสงค์อื่นๆ ตามที่ได้แจ้งไว้</li>
+            <li><strong>ผู้ช่วย AI:</strong> ท่านสามารถสนทนาเพื่อสอบถามข้อมูลทั่วไปผ่านผู้ช่วย AI "DIVA" ของเราได้</li>
+        </ul>
+
+        <h4>2. กิจกรรมต้องห้าม</h4>
+        <p>ท่านตกลงว่าจะไม่ใช้บริการเพื่อวัตถุประสงค์ดังต่อไปนี้:</p>
+        <ul>
+            <li>การกระทำที่ผิดกฎหมาย, หลอกลวง, หรือสร้างความเสียหายต่อผู้อื่น</li>
+            <li>การใช้ระบบอัตโนมัติ (เช่น สคริปต์, บอท) ในการเข้าถึงหรือใช้งานบริการในทางที่ไม่เหมาะสม ซึ่งสร้างภาระให้กับเซิร์ฟเวอร์ของเราเกินความจำเป็น</li>
+            <li>การแทรกแซงหรือขัดขวางการทำงานของบริการ หรือพยายามเข้าถึงระบบในส่วนที่ไม่ได้รับอนุญาต</li>
+            <li>การปลอมแปลงตัวตนเป็นบุคคลอื่นในการลงทะเบียนหรือใช้บริการ</li>
+        </ul>
     </div>
-    
+
+    <div class="content">
+        <h2>นโยบายความเป็นส่วนตัว</h2>
+
+        <h4>1. ข้อมูลที่เราเก็บรวบรวม</h4>
+        <p>เพื่อให้บริการแก่ท่านได้อย่างสมบูรณ์ เรามีความจำเป็นต้องเก็บรวบรวมข้อมูลส่วนบุคคลของท่านดังนี้:</p>
+        <ul>
+            <li><strong>ข้อมูลที่ได้รับจาก LINE:</strong> เมื่อท่านเริ่มใช้งานและลงทะเบียน เราจะได้รับข้อมูลโปรไฟล์สาธารณะของท่านจาก LINE ได้แก่ ชื่อที่แสดง (Display Name), รูปโปรไฟล์ (Picture URL), และรหัสผู้ใช้ภายใน (User ID)</li>
+            <li><strong>ข้อมูลที่ท่านให้โดยตรง:</strong> เราจะร้องขอเบอร์โทรศัพท์ของท่านในขั้นตอนการลงทะเบียน</li>
+            <li><strong>ข้อมูลที่เกิดขึ้นจากการใช้งาน:</strong> เราจะจัดเก็บประวัติการให้ความยินยอม, ประวัติการจองคิว, และประวัติการเช็คอินของท่าน</li>
+        </ul>
+
+        <h4>2. วัตถุประสงค์ในการใช้ข้อมูล</h4>
+        <p>เราใช้ข้อมูลของท่านเพื่อวัตถุประสงค์ดังต่อไปนี้:</p>
+        <ul>
+            <li>เพื่อสร้างและยืนยันบัญชีผู้ใช้ของท่าน</li>
+            <li>เพื่อให้บริการจองคิว, จัดการลำดับคิว, และแจ้งเตือนเมื่อถึงคิว</li>
+            <li>เพื่อให้บริการยืนยันตัวตนด้วย QR Code</li>
+            <li>เพื่อใช้ในการติดต่อท่านในกรณีที่จำเป็นเกี่ยวกับบริการ</li>
+            <li>เพื่อปรับปรุงและพัฒนาคุณภาพการให้บริการของเรา</li>
+        </ul>
+
+        <h4>3. การเปิดเผยข้อมูลแก่บุคคลที่สาม</h4>
+        <p>เราไม่มีนโยบายขายข้อมูลของท่าน อย่างไรก็ตาม เพื่อให้การบริการสามารถทำงานได้ เราจำเป็นต้องมีการเปิดเผยหรือส่งต่อข้อมูลของท่านไปยังผู้ให้บริการที่เป็นบุคคลที่สามดังนี้:</p>
+        <ul>
+            <li><strong>LINE Corporation:</strong> เราใช้แพลตฟอร์ม LINE Messaging API ในการสื่อสารโต้ตอบกับท่าน</li>
+            <li><strong>Google (Firebase):</strong> เราใช้บริการฐานข้อมูล Firestore จาก Google ในการจัดเก็บข้อมูลบัญชี, ข้อมูลคิว, และข้อมูลการเช็คอินของท่านอย่างปลอดภัย</li>
+            <li><strong>Google (Generative AI):</strong> เราส่ง "ข้อความคำถาม" ของท่าน (ไม่รวมข้อมูลส่วนตัวอื่นๆ) ไปยังบริการ Gemini AI ของ Google เพื่อประมวลผลและสร้างคำตอบกลับมาให้ท่าน</li>
+        </ul>
+        <p>เราขอแนะนำให้ท่านอ่านนโยบายความเป็นส่วนตัวของผู้ให้บริการเหล่านี้เพิ่มเติม</p>
+
+        <h4>4. สิทธิ์ของเจ้าของข้อมูล</h4>
+        <p>ภายใต้กฎหมายคุ้มครองข้อมูลส่วนบุคคล ท่านมีสิทธิ์ในการเข้าถึง, แก้ไข, หรือร้องขอให้ลบข้อมูลส่วนบุคคลของท่านออกจากระบบของเราได้ </p>
+
+        <h4>6. การเปลี่ยนแปลงนโยบาย</h4>
+        <p>เราขอสงวนสิทธิ์ในการเปลี่ยนแปลงข้อตกลงและนโยบายนี้ได้ทุกเมื่อ การเปลี่ยนแปลงจะมีผลทันทีเมื่อเราได้เผยแพร่ฉบับใหม่ การที่ท่านใช้งานบริการต่อไปถือว่าท่านยอมรับนโยบายฉบับปรับปรุงแล้ว</p>
+
+    </div>
+
     <div id="actions" class="actions">
         <a href="#" id="agree-btn" class="button agree">ยินยอมและดำเนินการต่อ</a>
         <a href="#" id="disagree-btn" class="button disagree">ไม่ยินยอม</a>
     </div>
-    
-    <!-- 5. เพิ่ม HTML ของปุ่มลอยเข้ามาใหม่ที่ท้ายของ body -->
-    <button id="scroll-to-bottom-btn" title="เลื่อนไปยังส่วนการให้ความยินยอม">
-        ↓ <!-- โค้ดลูกศรชี้ลง (↓) -->
-    </button>
 
+    <button id="scroll-to-bottom-btn" title="เลื่อนไปยังส่วนการให้ความยินยอม">
+        ↓
+    </button>
+    
     <script>
         document.addEventListener('DOMContentLoaded', () => {
-            // โค้ด JavaScript ทั้งหมดของคุณยังคงทำงานได้เหมือนเดิมทุกประการ
-            // ไม่จำเป็นต้องแก้ไขอะไรในส่วนนี้เลย
             const urlParams = new URLSearchParams(window.location.search);
             const token = urlParams.get('token');
-            const actionsDiv = document.getElementById('actions'); // <-- หาเป้าหมายในการเลื่อน
-
+            const actionsDiv = document.getElementById('actions');
+            
             if (token) {
                 const apiBaseUrl = `/api/consent-response?token=${token}`;
                 document.getElementById('agree-btn').href = `${apiBaseUrl}&choice=agree`;
                 document.getElementById('disagree-btn').href = `${apiBaseUrl}&choice=disagree`;
             } else {
                 document.body.innerHTML = '<h1>เกิดข้อผิดพลาด</h1><p>ไม่พบข้อมูลที่จำเป็นสำหรับดำเนินการต่อ กรุณาลองอีกครั้งจากแอปพลิเคชัน LINE</p>';
-                return; 
+                return;
             }
           
             const scrollButton = document.getElementById('scroll-to-bottom-btn');
             scrollButton.addEventListener('click', () => {
-                // สั่งให้เลื่อนหน้าจอไปยัง div ที่มี id="actions"
                 actionsDiv.scrollIntoView({ behavior: 'smooth' });
             });
         });
-      
     </script>
 
 </body>
