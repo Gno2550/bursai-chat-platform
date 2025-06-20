@@ -1,6 +1,6 @@
 // admin.js (เวอร์ชันปรับมุมกล้อง)
 document.addEventListener('DOMContentLoaded', () => {
-    // --- ** 1. กำหนดค่าพิกัดใหม่ ** ---
+    // --- 1. กำหนดค่าพิกัดใหม่ ---
     const mapCenter = [13.9615, 100.6230]; // <-- ค่าใหม่: เลื่อนขึ้น
     const mapBounds = [
         [13.944, 100.61], // <-- ค่าใหม่: เลื่อนขอบเขตขึ้น
@@ -13,7 +13,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }).setView(mapCenter, 18);
     
     const busStopIcon = L.icon({
-        iconUrl: 'https://img.icons8.com/plasticine/100/bus-stop.png',
+        iconUrl: '/bus-stop.png', // <-- **[แก้ไข]** เปลี่ยนเป็น Local Path
         iconSize: [40, 40], iconAnchor: [20, 40], popupAnchor: [0, -40]
     });
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
@@ -49,7 +49,8 @@ document.addEventListener('DOMContentLoaded', () => {
     window.deleteStop = async (id) => {
         if (!confirm('คุณแน่ใจหรือไม่ว่าจะลบจุดจอดนี้?')) return;
         await fetch(`/api/delete-bus-stop/${id}`, { method: 'DELETE' });
-        if (existingMarkers[id]) { map.removeLayer(existingMarkers[id]); }
+        if (existingMarkers[id]) { map.removeLayer(existingMarkers[id]); delete existingMarkers[id]; }
+        loadStops(); // โหลดใหม่เพื่อให้แน่ใจว่าข้อมูลตรงกัน
     };
     
     loadStops();

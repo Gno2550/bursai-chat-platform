@@ -142,7 +142,7 @@ app.get('/api/bus-stops', async (req, res) => {
 app.post('/api/add-bus-stop', async (req, res) => {
     try {
         const { name, latitude, longitude } = req.body;
-        const newStop = { name: name, location: new admin.firestore.GeoPoint(latitude, longitude) };
+        const newStop = { name: name, location: new admin.firestore.GeoPoint(parseFloat(latitude), parseFloat(longitude)) };
         await db.collection('bus_stops').add(newStop);
         res.status(201).json({ success: true, message: 'Bus stop added' });
     } catch (error) {
@@ -175,16 +175,29 @@ app.post('/api/update-live-location', async (req, res) => {
         }
         let statusMessage = "ระหว่างทาง";
         let etaMinutes = 0;
+        let nextStopLocation = null; // <-- **[แก้ไข]** สร้างตัวแปรเก็บตำแหน่งป้ายถัดไป
+        
         if (closestStop && minDistance < 20) {
             statusMessage = `ถึงแล้ว: ${closestStop.name}`;
             etaMinutes = 0;
+            nextStopLocation = null; // ถึงแล้ว ไม่มีป้ายถัดไป
         } else if (closestStop) {
             const AVERAGE_SPEED_KMPH = 15;
             const speedMps = (AVERAGE_SPEED_KMPH * 1000) / 3600;
             etaMinutes = (minDistance / speedMps) / 60;
             statusMessage = `กำลังมุ่งหน้าไป ${closestStop.name}`;
+            nextStopLocation = closestStop.location; // <-- **[แก้ไข]** กำหนดค่าตำแหน่งป้ายถัดไป
         }
-        await cartRef.set({ location: new admin.firestore.GeoPoint(latitude, longitude), status: statusMessage, distanceToNextStop: minDistance, etaMinutes: etaMinutes, lastUpdate: new Date() }, { merge: true });
+        
+        await cartRef.set({ 
+            location: new admin.firestore.GeoPoint(latitude, longitude), 
+            status: statusMessage, 
+            distanceToNextStop: minDistance, 
+            etaMinutes: etaMinutes, 
+            lastUpdate: new Date(),
+            nextStopLocation: nextStopLocation // <-- **[แก้ไข]** บันทึกตำแหน่งลง Firestore
+        }, { merge: true });
+        
         res.json({ success: true, message: 'Location updated' });
     } catch (error) {
         console.error("Update Live Location Error:", error);
@@ -194,30 +207,17 @@ app.post('/api/update-live-location', async (req, res) => {
 
 // --- ** ส่วนจัดการ Logic หลักของบอท (handleEvent) ** ---
 async function handleEvent(event) {
-    // *** นี่คือโครงสร้างที่แก้ไขแล้ว ***
-    
-    // 1. จัดการ Event ที่ไม่ใช่ Message ก่อน
-    if (event.type === 'postback') {
-        return handlePostback(event);
-    }
-    if (event.type !== 'message') {
-        return Promise.resolve(null);
-    }
-
-    // 2. แยกประเภทของ Message
+    if (event.type === 'postback') { return handlePostback(event); }
+    if (event.type !== 'message') { return Promise.resolve(null); }
     switch (event.message.type) {
-        case 'text':
-            return handleTextMessage(event);
-        case 'contact':
-            return handleContactMessage(event);
-        default:
-            return Promise.resolve(null);
+        case 'text': return handleTextMessage(event);
+        case 'contact': return handleContactMessage(event);
+        default: return Promise.resolve(null);
     }
 }
 
 // --- ฟังก์ชันย่อยสำหรับจัดการ Postback Event ---
 async function handlePostback(event) {
-    // โค้ดส่วนนี้ไม่ได้ถูกใช้ใน Flow ปัจจุบัน (ที่ใช้หน้าเว็บ) แต่คงไว้เผื่ออนาคต
     const data = event.postback.data;
     console.log("Received postback data:", data);
     return Promise.resolve(null);
@@ -225,7 +225,6 @@ async function handlePostback(event) {
 
 // --- ฟังก์ชันย่อยสำหรับจัดการ Contact Message ---
 async function handleContactMessage(event) {
-    // ส่วนนี้ก็ไม่ได้ถูกใช้ใน Flow ปัจจุบัน แต่เป็นโครงสร้างที่ดี
     const userId = event.source.userId;
     const phoneNumber = event.message.phoneNumber;
     console.log(`Received contact message from ${userId} with phone: ${phoneNumber}`);
@@ -239,7 +238,6 @@ async function handleTextMessage(event) {
     const lowerCaseMessage = messageText.toLowerCase();
 
     try {
-        // จัดการการพิมพ์เบอร์โทร
         const phoneRegex = /^0\d{9}$/;
         if (phoneRegex.test(messageText)) {
             const userRef = db.collection('users').doc(userId);
@@ -251,7 +249,6 @@ async function handleTextMessage(event) {
             }
         }
 
-        // จัดการคำสั่งพิเศษ
         if (lowerCaseMessage === '/help') { return Promise.resolve(null); }
         
         if (lowerCaseMessage === 'ลงทะเบียน') {
@@ -336,7 +333,6 @@ async function handleTextMessage(event) {
             });
         }
 
-        // AI Fallback
         const prompt = `
           คุณคือ 'Chatai', 'ชาไทย' ผู้ช่วย AI อัจฉริยะใน BURSAI-CHAT-PLATFORM บุคลิกของคุณคือความเป็นมิตร สุภาพ ตลก และใช้คำลงท้ายว่า "ครับ"
           หน้าที่หลักของคุณคือการพูดคุยทั่วไปและตอบคำถามต่างๆ ของผู้ใช้
@@ -372,14 +368,7 @@ function getDistanceFromLatLonInM(lat1, lon1, lat2, lon2) {
     const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
     return R * c;
 }
-function createConsentBubble() {
-  return {
-    type: 'bubble',
-    header: { type: 'box', layout: 'vertical', contents: [ { type: 'text', text: 'คำขอยินยอมให้ข้อมูล', weight: 'bold', size: 'xl', color: '#FFFFFF' } ], backgroundColor: '#007BFF', paddingAll: '20px' },
-    body: { type: 'box', layout: 'vertical', contents: [ { type: 'text', text: 'ข้อตกลงและเงื่อนไข', weight: 'bold', size: 'lg', margin: 'md' }, { type: 'text', text: 'เพื่อการลงทะเบียนและให้บริการจองคิว ทางเรามีความจำเป็นต้องเก็บรวบรวมข้อมูลโปรไฟล์ LINE ของท่าน อันได้แก่ ชื่อ, รูปโปรไฟล์, และเบอร์โทรศัพท์', wrap: true, margin: 'md' }, { type: 'text', text: 'ข้อมูลของท่านจะถูกใช้เพื่อการยืนยันตัวตนและการติดต่อกลับในกรณีที่จำเป็นเท่านั้น', wrap: true, margin: 'md'}, { type: 'separator', margin: 'xxl' } ] },
-    footer: { type: 'box', layout: 'horizontal', spacing: 'sm', contents: [ { type: 'button', style: 'secondary', height: 'sm', action: { type: 'postback', label: 'ไม่ยินยอม', data: 'consent_disagree' } }, { type: 'button', style: 'primary', height: 'sm', action: { type: 'postback', label: 'ยินยอม', data: 'consent_agree' } } ] }
-  };
-}
+
 async function callNextUser(freedRoomNumber) {
     const nextUserSnapshot = await db.collection('queues').where('status', '==', 'WAITING').orderBy('queueNumber').limit(1).get();
     if (nextUserSnapshot.empty) {
@@ -393,10 +382,6 @@ async function callNextUser(freedRoomNumber) {
     console.log(`Calling user ${nextUserData.displayName} (Queue: ${nextUserData.queueNumber}) to Room ${freedRoomNumber}`);
     return client.pushMessage(nextUserData.lineUserId, notificationMessage);
 }
-
-// ** ลบ Simulator เก่าทิ้ง **
-// async function updateCartPosition() { ... }
-// setInterval(updateCartPosition, 15000); 
 
 // --- Start Server ---
 const port = process.env.PORT || 3000;
