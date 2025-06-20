@@ -43,7 +43,6 @@ app.post('/api/staff-register', async (req, res) => {
         res.status(500).json({ success: false, message: 'เกิดข้อผิดพลาดในระบบ' });
     }
 });
-
 app.post('/api/staff-login', async (req, res) => {
     try {
         const { username, password } = req.body;
@@ -62,7 +61,7 @@ app.post('/api/staff-login', async (req, res) => {
     }
 });
 
-// Endpoint สร้างภาพ QR Code
+// --- User-Facing API Routes ---
 app.get('/generate-qr', async (req, res) => {
   try {
     const { token } = req.query;
@@ -75,8 +74,6 @@ app.get('/generate-qr', async (req, res) => {
     res.status(500).send('Error generating QR code');
   }
 });
-
-// Endpoint ตรวจสอบ QR Code
 app.post('/api/verify-check-in', async (req, res) => {
     res.set('Access-Control-Allow-Origin', '*');
     try {
@@ -85,7 +82,6 @@ app.post('/api/verify-check-in', async (req, res) => {
         const staffToken = authHeader.split(' ')[1];
         const staffDecoded = jwt.verify(staffToken, process.env.JWT_SECRET);
         const staffName = staffDecoded.staffName;
-
         const { token } = req.body;
         if (!token) { return res.status(400).json({ success: false, message: 'ไม่พบ Token ของผู้ใช้' }); }
         const decoded = jwt.verify(token, process.env.JWT_SECRET);
@@ -100,94 +96,86 @@ app.post('/api/verify-check-in', async (req, res) => {
         else { console.error("Verify Check-in Error:", error); res.status(500).json({ success: false, message: 'เกิดข้อผิดพลาดในระบบ' }); }
     }
 });
-
-// --- ** API Endpoint ใหม่สำหรับจัดการการยินยอมจากหน้าเว็บ ** ---
 app.get('/api/consent-response', async (req, res) => {
     try {
         const { choice, token } = req.query;
-        if (!token || !choice) {
-            return res.status(400).send('Missing required parameters.');
-        }
-
+        if (!token || !choice) { return res.status(400).send('Missing required parameters.'); }
         const decoded = jwt.verify(token, process.env.JWT_SECRET);
         const userId = decoded.uid;
         const projectUrl = `https://${process.env.PROJECT_DOMAIN}.glitch.me`;
-
         if (choice === 'agree') {
             await db.collection('users').doc(userId).set({ consentGiven: true, consentTimestamp: new Date() }, { merge: true });
-            
-            // ใช้ Push Message ส่งข้อความกลับไปใน LINE เพื่อขอเบอร์โทร
-            await client.pushMessage(userId, {
-                type: 'text',
-                text: 'ขอบคุณที่ยินยอมครับ ขั้นตอนต่อไป กรุณาพิมพ์เบอร์โทรศัพท์ 10 หลักของท่านเพื่อใช้ในการลงทะเบียนครับ (ตัวอย่าง: 0812345678)'
-            });
-            // ส่งผู้ใช้ไปยังหน้า "สำเร็จ"
+            await client.pushMessage(userId, { type: 'text', text: 'ขอบคุณที่ยินยอมครับ ขั้นตอนต่อไป กรุณาพิมพ์เบอร์โทรศัพท์ 10 หลักของท่านเพื่อใช้ในการลงทะเบียนครับ (ตัวอย่าง: 0812345678)' });
             res.redirect(`${projectUrl}/consent_success.html`);
-
         } else if (choice === 'disagree') {
-            await client.pushMessage(userId, {
-                type: 'text',
-                text: 'ท่านได้ปฏิเสธการให้ข้อมูล ทางเราจึงไม่สามารถดำเนินการลงทะเบียนให้ท่านได้ ขออภัยในความไม่สะดวกครับ'
-            });
-             // ส่งผู้ใช้ไปยังหน้า "ปฏิเสธ"
+            await client.pushMessage(userId, { type: 'text', text: 'ท่านได้ปฏิเสธการให้ข้อมูล ทางเราจึงไม่สามารถดำเนินการลงทะเบียนให้ท่านได้ ขออภัยในความไม่สะดวกครับ' });
             res.redirect(`${projectUrl}/consent_declined.html`);
         } else {
             res.status(400).send('Invalid choice.');
         }
-
     } catch (error) {
         console.error("Consent Response Error:", error);
         res.status(500).send('An error occurred.');
     }
 });
+app.get('/api/bugo-status', async (req, res) => {
+    try {
+        const cartSnapshot = await db.collection('golf_carts').doc('cart_01').get();
+        if (!cartSnapshot.exists) { return res.status(404).json({ error: 'Cart not found' }); }
+        res.set('Access-Control-Allow-Origin', '*');
+        res.json(cartSnapshot.data());
+    } catch (error) {
+        console.error("Bugo Status API Error:", error);
+        res.status(500).json({ error: 'Failed to fetch cart status' });
+    }
+});
 
-
-// --- Event Handler (แก้ไข Logic การลงทะเบียน) ---
+// --- ** ส่วนจัดการ Logic หลักของบอท (handleEvent) - จัดโครงสร้างใหม่ ** ---
 async function handleEvent(event) {
-    
-    if (lowerCaseMessage === 'bugo') {
-    const projectUrl = `https://${process.env.PROJECT_DOMAIN}.glitch.me`;
-    const bugoTrackerUrl = `${projectUrl}/bugo.html`;
-
-    return client.replyMessage(event.replyToken, {
-        type: 'flex',
-        altText: 'เปิดระบบติดตามรถกอล์ฟ Bugo',
-        contents: {
-            type: 'bubble',
-            body: {
-                type: 'box',
-                layout: 'vertical',
-                contents: [
-                    { type: 'text', text: 'Bugo Tracker', weight: 'bold', size: 'xl' },
-                    { type: 'text', text: 'ระบบติดตามตำแหน่งรถกอล์ฟแบบ Real-time แตะปุ่มด้านล่างเพื่อเปิดแผนที่ครับ', wrap: true, margin: 'md' }
-                ]
-            },
-            footer: {
-                type: 'box',
-                layout: 'vertical',
-                contents: [{
-                    type: 'button',
-                    style: 'primary',
-                    height: 'sm',
-                    action: { type: 'uri', label: 'เปิดแผนที่ติดตาม', uri: bugoTrackerUrl }
-                }]
-            }
-        }
-    });
-}
-  
-  
-    // ** ลบส่วนจัดการ postback ออก เพราะไม่ได้ใช้แล้ว **
-    if (event.type !== 'message' || event.message.type !== 'text') {
+    // 1. จัดการ Event ที่ไม่ใช่ Message ก่อน
+    if (event.type === 'postback') {
+        return handlePostback(event);
+    }
+    if (event.type !== 'message') {
         return Promise.resolve(null);
     }
 
+    // 2. แยกประเภทของ Message
+    switch (event.message.type) {
+        case 'text':
+            return handleTextMessage(event);
+        case 'contact':
+            return handleContactMessage(event);
+        default:
+            return Promise.resolve(null);
+    }
+}
+
+// --- ฟังก์ชันย่อยสำหรับจัดการ Postback Event ---
+async function handlePostback(event) {
+    // โค้ดส่วนนี้ไม่ได้ถูกใช้ใน Flow ปัจจุบัน (ที่ใช้หน้าเว็บ) แต่คงไว้เผื่ออนาคต
+    const data = event.postback.data;
+    console.log("Received postback data:", data);
+    return Promise.resolve(null);
+}
+
+// --- ฟังก์ชันย่อยสำหรับจัดการ Contact Message ---
+async function handleContactMessage(event) {
+    // ส่วนนี้ก็ไม่ได้ถูกใช้ใน Flow ปัจจุบัน แต่เป็นโครงสร้างที่ดี
+    const userId = event.source.userId;
+    const phoneNumber = event.message.phoneNumber;
+    console.log(`Received contact message from ${userId} with phone: ${phoneNumber}`);
+    return Promise.resolve(null);
+}
+
+// --- ฟังก์ชันย่อยสำหรับจัดการ Text Message ---
+async function handleTextMessage(event) {
     const userId = event.source.userId;
     const messageText = event.message.text.trim();
     const lowerCaseMessage = messageText.toLowerCase();
 
     try {
-        // --- จัดการการพิมพ์เบอร์โทร ---
+        // จัดการการพิมพ์เบอร์โทร
         const phoneRegex = /^0\d{9}$/;
         if (phoneRegex.test(messageText)) {
             const userRef = db.collection('users').doc(userId);
@@ -199,53 +187,26 @@ async function handleEvent(event) {
             }
         }
 
-        // --- จัดการคำสั่งพิเศษ ---
+        // จัดการคำสั่งพิเศษ
         if (lowerCaseMessage === '/help') { return Promise.resolve(null); }
         
-        // --- คำสั่ง: ลงทะเบียน (Logic ใหม่: ส่งไปหน้าเว็บ) ---
         if (lowerCaseMessage === 'ลงทะเบียน') {
             const userRef = db.collection('users').doc(userId);
             const doc = await userRef.get();
-            if (doc.exists && doc.data().phoneNumber) {
-                return client.replyMessage(event.replyToken, { type: 'text', text: 'คุณได้ลงทะเบียนไว้เรียบร้อยแล้วครับ' });
-            }
-
-            // สร้าง Token สำหรับหน้าเว็บยินยอม มีอายุ 15 นาที
+            if (doc.exists && doc.data().phoneNumber) { return client.replyMessage(event.replyToken, { type: 'text', text: 'คุณได้ลงทะเบียนไว้เรียบร้อยแล้วครับ' }); }
             const consentToken = jwt.sign({ uid: userId, purpose: 'consent' }, process.env.JWT_SECRET, { expiresIn: '15m' });
             const projectUrl = `https://${process.env.PROJECT_DOMAIN}.glitch.me`;
             const consentUrl = `${projectUrl}/consent.html?token=${consentToken}`;
-
-            // ส่งข้อความพร้อมปุ่มไปยังหน้า Landing Page
             return client.replyMessage(event.replyToken, {
-                type: 'flex',
-                altText: 'กรุณาอ่านและยินยอมข้อตกลงเพื่อดำเนินการต่อ',
+                type: 'flex', altText: 'กรุณาอ่านและยินยอมข้อตกลงเพื่อดำเนินการต่อ',
                 contents: {
                     type: 'bubble',
-                    body: {
-                        type: 'box',
-                        layout: 'vertical',
-                        contents: [
-                            { type: 'text', text: 'ขั้นตอนการลงทะเบียน', weight: 'bold', size: 'xl' },
-                            { type: 'text', text: 'เพื่อดำเนินการต่อ กรุณาอ่านและให้ความยินยอมในข้อตกลงและเงื่อนไขการให้บริการของเราก่อนครับ', wrap: true, margin: 'md'}
-                        ]
-                    },
-                    footer: {
-                        type: 'box',
-                        layout: 'vertical',
-                        contents: [{
-                            type: 'button',
-                            style: 'primary',
-                            height: 'sm',
-                            action: { type: 'uri', label: 'อ่านข้อตกลงและเงื่อนไข', uri: consentUrl }
-                        }]
-                    }
+                    body: { type: 'box', layout: 'vertical', contents: [ { type: 'text', text: 'ขั้นตอนการลงทะเบียน', weight: 'bold', size: 'xl' }, { type: 'text', text: 'เพื่อดำเนินการต่อ กรุณาอ่านและให้ความยินยอมในข้อตกลงและเงื่อนไขการให้บริการของเราก่อนครับ', wrap: true, margin: 'md'} ] },
+                    footer: { type: 'box', layout: 'vertical', contents: [{ type: 'button', style: 'primary', height: 'sm', action: { type: 'uri', label: 'อ่านข้อตกลงและเงื่อนไข', uri: consentUrl } }] }
                 }
             });
         }
 
-        // --- (โค้ดคำสั่งอื่นๆ และ AI ทั้งหมดเหมือนเดิม) ---
-        
-        // คำสั่ง: เช็คอิน
         if (lowerCaseMessage === 'เช็คอิน') {
             const userRef = db.collection('users').doc(userId);
             const userDoc = await userRef.get();
@@ -260,7 +221,6 @@ async function handleEvent(event) {
             ]);
         }
 
-        // คำสั่ง: จองคิว
         if (lowerCaseMessage === 'จองคิว') {
             const userRef = db.collection('users').doc(userId);
             const userDoc = await userRef.get();
@@ -281,7 +241,6 @@ async function handleEvent(event) {
             }
         }
 
-        // คำสั่ง: เสร็จสิ้น
         if (lowerCaseMessage === 'เสร็จสิ้น') {
             const servingQueueSnapshot = await db.collection('queues').where('lineUserId', '==', userId).where('status', '==', 'SERVING').limit(1).get();
             if (servingQueueSnapshot.empty) { return client.replyMessage(event.replyToken, { type: 'text', text: 'คุณยังไม่ได้เข้าใช้บริการเลยครับผม' }); }
@@ -292,7 +251,6 @@ async function handleEvent(event) {
             return callNextUser(finishedRoomNumber);
         }
         
-        // คำสั่ง: สถานะ
         if (lowerCaseMessage === 'สถานะ' || lowerCaseMessage === 'คิว') {
             const servingSnapshot = await db.collection('queues').where('status', '==', 'SERVING').orderBy('checkInTime').get();
             const waitingSnapshot = await db.collection('queues').where('status', '==', 'WAITING').orderBy('queueNumber').get();
@@ -301,38 +259,55 @@ async function handleEvent(event) {
             return client.replyMessage(event.replyToken, { type: 'text', text: servingText + waitingText });
         }
 
-        // --- สมองส่วนที่ 2: ถ้าไม่ใช่คำสั่งพิเศษ ให้ส่งไปให้ AI ---
+        if (lowerCaseMessage === 'bugo') {
+            const projectUrl = `https://${process.env.PROJECT_DOMAIN}.glitch.me`;
+            const bugoTrackerUrl = `${projectUrl}/bugo.html`;
+            return client.replyMessage(event.replyToken, {
+                type: 'flex', altText: 'เปิดระบบติดตามรถกอล์ฟ Bugo',
+                contents: {
+                    type: 'bubble',
+                    body: { type: 'box', layout: 'vertical', contents: [ { type: 'text', text: 'Bugo Tracker', weight: 'bold', size: 'xl' }, { type: 'text', text: 'ระบบติดตามตำแหน่งรถกอล์ฟแบบ Real-time แตะปุ่มด้านล่างเพื่อเปิดแผนที่ครับ', wrap: true, margin: 'md' } ] },
+                    footer: { type: 'box', layout: 'vertical', contents: [{ type: 'button', style: 'primary', height: 'sm', action: { type: 'uri', label: 'เปิดแผนที่ติดตาม', uri: bugoTrackerUrl } }] }
+                }
+            });
+        }
+
+        // AI Fallback
         const prompt = `
           คุณคือ 'DIVA' ผู้ช่วย AI อัจฉริยะใน BURSAI-CHAT-PLATFORM บุคลิกของคุณคือความเป็นมิตร สุภาพ ตลก และใช้คำลงท้ายว่า "ครับ"
-  หน้าที่หลักของคุณคือการพูดคุยทั่วไปและตอบคำถามต่างๆ ของผู้ใช้
-
-  สิ่งสำคัญที่ต้องรู้:
-  1. บอทนี้มีความสามารถหลักๆ คือ "ลงทะเบียน", "จองคิว" (สำหรับเข้าห้อง), และ "เช็คอิน" (สำหรับยืนยันตัวตนทั่วไป)
-  2. "จองคิว" ใช้สำหรับจองคิวเพื่อเข้าใช้บริการห้อง/พื้นที่ และเมื่อถึงคิวจะมีการแจ้งเตือน
-  3. "เช็คอิน" ใช้สำหรับสร้าง QR Code เพื่อยืนยันตัวตน ณ จุดบริการ, เข้าร่วมกิจกรรม, หรือสะสมแต้ม
-  4. ถ้าผู้ใช้ต้องการทำอะไรที่เกี่ยวกับคิวหรือห้อง ให้แนะนำให้พิมพ์ "จองคิว" หรือ "สถานะ"
-  5. ถ้าผู้ใช้ต้องการ QR Code เพื่อยืนยันตัวตน ให้แนะนำให้พิมพ์ "เช็คอิน"
-  6. ถ้าผู้ใช้ถามเกี่ยวกับการสมัครสมาชิก ให้แนะนำให้พิมพ์ "ลงทะเบียน"
-  7. ถ้าผู้ใช้ถามเรื่องการออกจากห้อง หรือใช้เสร็จแล้ว ให้แนะนำให้พิมพ์ "เสร็จสิ้น"
-  8. สำหรับคำถามอื่นๆ ทั้งหมด ให้คุณตอบอย่างเป็นธรรมชาติในฐานะ 'DIVA' , คุณเป็นผู้ชาย, คุณขี้เล่นและสุภาพ
-  9. ข้อความที่คุณพิมพ์หาผู้ใช้มีความยาว 1 - 2 ประโยคพอ
-
-  คำถามจากผู้ใช้: "${messageText}"
-`;
+          หน้าที่หลักของคุณคือการพูดคุยทั่วไปและตอบคำถามต่างๆ ของผู้ใช้
+          สิ่งสำคัญที่ต้องรู้:
+          1. บอทนี้มีความสามารถพิเศษในการ "ลงทะเบียน", "จองคิว", "เสร็จสิ้น", "เช็คอิน", ดู "สถานะ" คิว, และติดตามรถกอล์ฟ "bugo"
+          2. ถ้าผู้ใช้ถามเกี่ยวกับการสมัครสมาชิก ให้แนะนำให้พิมพ์ "ลงทะเบียน"
+          3. ถ้าผู้ใช้ถามเกี่ยวกับการรับคิว ให้แนะนำให้พิมพ์ "จองคิว"
+          4. ถ้าผู้ใช้ถามเรื่องการออกจากห้อง หรือใช้เสร็จแล้ว ให้แนะนำให้พิมพ์ "เสร็จสิ้น"
+          5. ถ้าผู้ใช้ถามว่าตอนนี้ถึงคิวไหนแล้ว ให้แนะนำให้พิมพ์ "สถานะ"
+          6. ถ้าผู้ใช้ต้องการ QR Code เพื่อยืนยันตัวตน ให้แนะนำให้พิมพ์ "เช็คอิน"
+          7. ถ้าผู้ใช้ต้องการติดตามรถกอล์ฟ ให้แนะนำให้พิมพ์ "bugo"
+          8. สำหรับคำถามอื่นๆ ทั้งหมด ให้คุณตอบอย่างเป็นธรรมชาติในฐานะ 'DIVA' , คุณเป็นผู้ชาย, คุณขี้เล่นและสุภาพ
+          9. ข้อความที่คุณพิมพ์หาผู้ใช้มีความยาว 1 - 2 ประโยคพอ
+          คำถามจากผู้ใช้: "${messageText}"
+        `;
         const result = await model.generateContent(prompt);
         const response = await result.response;
         const aiReply = response.text();
         return client.replyMessage(event.replyToken, { type: 'text', text: aiReply });
 
     } catch (error) {
-        console.error("An error occurred:", error);
+        console.error("An error occurred in handleTextMessage:", error);
         return client.replyMessage(event.replyToken, { type: 'text', text: 'ขออภัยครับ เกิดข้อผิดพลาดในระบบ' });
     }
 }
 
-// ** ไม่ต้องใช้ฟังก์ชัน createConsentBubble แล้ว สามารถลบทิ้งได้ **
-
-// --- ฟังก์ชันสำหรับเรียกคิวถัดไป ---
+// --- Helper Functions ---
+function createConsentBubble() {
+  return {
+    type: 'bubble',
+    header: { type: 'box', layout: 'vertical', contents: [ { type: 'text', text: 'คำขอยินยอมให้ข้อมูล', weight: 'bold', size: 'xl', color: '#FFFFFF' } ], backgroundColor: '#007BFF', paddingAll: '20px' },
+    body: { type: 'box', layout: 'vertical', contents: [ { type: 'text', text: 'ข้อตกลงและเงื่อนไข', weight: 'bold', size: 'lg', margin: 'md' }, { type: 'text', text: 'เพื่อการลงทะเบียนและให้บริการจองคิว ทางเรามีความจำเป็นต้องเก็บรวบรวมข้อมูลโปรไฟล์ LINE ของท่าน อันได้แก่ ชื่อ, รูปโปรไฟล์, และเบอร์โทรศัพท์', wrap: true, margin: 'md' }, { type: 'text', text: 'ข้อมูลของท่านจะถูกใช้เพื่อการยืนยันตัวตนและการติดต่อกลับในกรณีที่จำเป็นเท่านั้น', wrap: true, margin: 'md'}, { type: 'separator', margin: 'xxl' } ] },
+    footer: { type: 'box', layout: 'horizontal', spacing: 'sm', contents: [ { type: 'button', style: 'secondary', height: 'sm', action: { type: 'postback', label: 'ไม่ยินยอม', data: 'consent_disagree' } }, { type: 'button', style: 'primary', height: 'sm', action: { type: 'postback', label: 'ยินยอม', data: 'consent_agree' } } ] }
+  };
+}
 async function callNextUser(freedRoomNumber) {
     const nextUserSnapshot = await db.collection('queues').where('status', '==', 'WAITING').orderBy('queueNumber').limit(1).get();
     if (nextUserSnapshot.empty) {
@@ -345,62 +320,30 @@ async function callNextUser(freedRoomNumber) {
     const notificationMessage = { type: 'text', text: `ถึงคิวของคุณ ${nextUserData.displayName} แล้วครับ! (คิวที่ ${nextUserData.queueNumber})\nเชิญที่ห้องหมายเลข ${freedRoomNumber} ได้เลย` };
     console.log(`Calling user ${nextUserData.displayName} (Queue: ${nextUserData.queueNumber}) to Room ${freedRoomNumber}`);
     return client.pushMessage(nextUserData.lineUserId, notificationMessage);
-}// --- ** Bugo - Golf Cart Simulator ** ---
+}
 
-// 1. กำหนดจุดจอดรถ (Bus Stops) เป็นพิกัด Lat/Lng
+// --- Bugo - Golf Cart Simulator ---
 const busStops = [
     { name: "หน้าอาคาร A", location: new admin.firestore.GeoPoint(13.7580, 100.5018) },
     { name: "โรงอาหารกลาง", location: new admin.firestore.GeoPoint(13.7565, 100.5035) },
     { name: "หอสมุด", location: new admin.firestore.GeoPoint(13.7540, 100.5025) },
     { name: "คณะวิศวกรรมศาสตร์", location: new admin.firestore.GeoPoint(13.7555, 100.5005) },
-    // เพิ่มจุดจอดได้ตามต้องการ
 ];
-
-// 2. ฟังก์ชันสำหรับอัปเดตตำแหน่งรถกอล์ฟ
 async function updateCartPosition() {
     const cartRef = db.collection('golf_carts').doc('cart_01');
     const cartDoc = await cartRef.get();
     if (!cartDoc.exists) {
-        console.log("Cart 'cart_01' not found in Firestore. Skipping update.");
+        console.log("Cart 'cart_01' not found. Creating it at the first stop.");
+        await cartRef.set({ name: 'Bugo 1', status: 'STOPPED', location: busStops[0].location, currentStopIndex: 0, lastUpdate: new Date() });
         return;
     }
-
     const currentData = cartDoc.data();
-    // หาว่าจุดต่อไปคือที่ไหน (ถ้าถึงจุดสุดท้ายแล้วให้วนกลับไปที่ 0)
     let nextStopIndex = (currentData.currentStopIndex + 1) % busStops.length;
-    
     const nextStop = busStops[nextStopIndex];
-
-    // อัปเดตตำแหน่งใน Firestore
-    await cartRef.update({
-        location: nextStop.location,
-        status: `Moving to ${nextStop.name}`,
-        currentStopIndex: nextStopIndex,
-        lastUpdate: new Date()
-    });
-
+    await cartRef.update({ location: nextStop.location, status: `Moving to ${nextStop.name}`, currentStopIndex: nextStopIndex, lastUpdate: new Date() });
     console.log(`Bugo 1 moved to: ${nextStop.name} (Lat: ${nextStop.location.latitude}, Lng: ${nextStop.location.longitude})`);
 }
-
-// 3. เริ่มการทำงานของ Simulator
-// สั่งให้ฟังก์ชัน updateCartPosition ทำงานทุกๆ 15 วินาที
 setInterval(updateCartPosition, 15000); 
-
-app.get('/api/bugo-status', async (req, res) => {
-    try {
-        const cartSnapshot = await db.collection('golf_carts').doc('cart_01').get();
-        if (!cartSnapshot.exists) {
-            return res.status(404).json({ error: 'Cart not found' });
-        }
-        // ส่งข้อมูลทั้งหมดของรถกลับไปเป็น JSON
-        res.set('Access-Control-Allow-Origin', '*');
-        res.json(cartSnapshot.data());
-    } catch (error) {
-        console.error("Bugo Status API Error:", error);
-        res.status(500).json({ error: 'Failed to fetch cart status' });
-    }
-});
-
 
 // --- Start Server ---
 const port = process.env.PORT || 3000;
