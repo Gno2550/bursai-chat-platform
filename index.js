@@ -96,28 +96,6 @@ app.post('/api/verify-check-in', async (req, res) => {
         else { console.error("Verify Check-in Error:", error); res.status(500).json({ success: false, message: 'เกิดข้อผิดพลาดในระบบ' }); }
     }
 });
-app.get('/api/consent-response', async (req, res) => {
-    try {
-        const { choice, token } = req.query;
-        if (!token || !choice) { return res.status(400).send('Missing required parameters.'); }
-        const decoded = jwt.verify(token, process.env.JWT_SECRET);
-        const userId = decoded.uid;
-        const projectUrl = `https://${process.env.PROJECT_DOMAIN}.glitch.me`;
-        if (choice === 'agree') {
-            await db.collection('users').doc(userId).set({ consentGiven: true, consentTimestamp: new Date() }, { merge: true });
-            await client.pushMessage(userId, { type: 'text', text: 'ขอบคุณที่ยินยอมครับ ขั้นตอนต่อไป กรุณาพิมพ์เบอร์โทรศัพท์ 10 หลักของท่านเพื่อใช้ในการลงทะเบียนครับ (ตัวอย่าง: 0812345678)' });
-            res.redirect(`${projectUrl}/consent_success.html`);
-        } else if (choice === 'disagree') {
-            await client.pushMessage(userId, { type: 'text', text: 'ท่านได้ปฏิเสธการให้ข้อมูล ทางเราจึงไม่สามารถดำเนินการลงทะเบียนให้ท่านได้ ขออภัยในความไม่สะดวกครับ' });
-            res.redirect(`${projectUrl}/consent_declined.html`);
-        } else {
-            res.status(400).send('Invalid choice.');
-        }
-    } catch (error) {
-        console.error("Consent Response Error:", error);
-        res.status(500).send('An error occurred.');
-    }
-});
 app.get('/api/bugo-status', async (req, res) => {
     try {
         const cartSnapshot = await db.collection('golf_carts').doc('cart_01').get();
@@ -127,6 +105,68 @@ app.get('/api/bugo-status', async (req, res) => {
     } catch (error) {
         console.error("Bugo Status API Error:", error);
         res.status(500).json({ error: 'Failed to fetch cart status' });
+    }
+});
+app.get('/api/bus-stops', async (req, res) => {
+    try {
+        const stopsSnapshot = await db.collection('bus_stops').orderBy('name').get();
+        const stops = stopsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        res.set('Access-Control-Allow-Origin', '*');
+        res.json(stops);
+    } catch (error) {
+        res.status(500).json({ error: 'Failed to fetch bus stops' });
+    }
+});
+app.post('/api/add-bus-stop', async (req, res) => {
+    try {
+        const { name, latitude, longitude } = req.body;
+        const newStop = { name: name, location: new admin.firestore.GeoPoint(latitude, longitude) };
+        await db.collection('bus_stops').add(newStop);
+        res.status(201).json({ success: true, message: 'Bus stop added' });
+    } catch (error) {
+        res.status(500).json({ error: 'Failed to add bus stop' });
+    }
+});
+app.delete('/api/delete-bus-stop/:id', async (req, res) => {
+    try {
+        const { id } = req.params;
+        await db.collection('bus_stops').doc(id).delete();
+        res.status(200).json({ success: true, message: 'Bus stop deleted' });
+    } catch (error) {
+        res.status(500).json({ error: 'Failed to delete bus stop' });
+    }
+});
+app.post('/api/update-live-location', async (req, res) => {
+    try {
+        const { latitude, longitude } = req.body;
+        if (!latitude || !longitude) { return res.status(400).json({ success: false, message: 'Invalid location data' }); }
+        const cartRef = db.collection('golf_carts').doc('cart_01');
+        const stopsSnapshot = await db.collection('bus_stops').orderBy('name').get();
+        const stops = stopsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        let closestStop = null;
+        let minDistance = Infinity;
+        if (stops.length > 0) {
+            stops.forEach(stop => {
+                const distance = getDistanceFromLatLonInM(latitude, longitude, stop.location.latitude, stop.location.longitude);
+                if (distance < minDistance) { minDistance = distance; closestStop = stop; }
+            });
+        }
+        let statusMessage = "ระหว่างทาง";
+        let etaMinutes = 0;
+        if (closestStop && minDistance < 20) {
+            statusMessage = `ถึงแล้ว: ${closestStop.name}`;
+            etaMinutes = 0;
+        } else if (closestStop) {
+            const AVERAGE_SPEED_KMPH = 15;
+            const speedMps = (AVERAGE_SPEED_KMPH * 1000) / 3600;
+            etaMinutes = (minDistance / speedMps) / 60;
+            statusMessage = `กำลังมุ่งหน้าไป ${closestStop.name}`;
+        }
+        await cartRef.set({ location: new admin.firestore.GeoPoint(latitude, longitude), status: statusMessage, distanceToNextStop: minDistance, etaMinutes: etaMinutes, lastUpdate: new Date() }, { merge: true });
+        res.json({ success: true, message: 'Location updated' });
+    } catch (error) {
+        console.error("Update Live Location Error:", error);
+        res.status(500).json({ success: false, message: 'Server error' });
     }
 });
 
@@ -266,7 +306,7 @@ async function handleTextMessage(event) {
                 type: 'flex', altText: 'เปิดระบบติดตามรถกอล์ฟ Bugo',
                 contents: {
                     type: 'bubble',
-                    body: { type: 'box', layout: 'vertical', contents: [ { type: 'text', text: 'Bugo Tracker', weight: 'bold', size: 'xl' }, { type: 'text', text: 'ระบบติดตามตำแหน่งรถกอล์ฟแบบ Real-time แตะปุ่มด้านล่างเพื่อเปิดแผนที่ครับ', wrap: true, margin: 'md' } ] },
+                    body: { type: 'box', layout: 'vertical', contents: [ { type: 'text', text: 'Bugo Tracker', weight: 'bold', size: 'xl' }, { type: 'text', text: 'ระบบติดตามตำแหน่งรถกอล์ฟแบบ Real-time แตะปุ่มด้านล่างเพื่อเปิดแผนที่ครับและดูตำแหน่งของรถ', wrap: true, margin: 'md' } ] },
                     footer: { type: 'box', layout: 'vertical', contents: [{ type: 'button', style: 'primary', height: 'sm', action: { type: 'uri', label: 'เปิดแผนที่ติดตาม', uri: bugoTrackerUrl } }] }
                 }
             });
@@ -297,6 +337,14 @@ async function handleTextMessage(event) {
         console.error("An error occurred in handleTextMessage:", error);
         return client.replyMessage(event.replyToken, { type: 'text', text: 'ขออภัยครับ เกิดข้อผิดพลาดในระบบ' });
     }
+}
+function getDistanceFromLatLonInM(lat1, lon1, lat2, lon2) {
+    const R = 6371e3;
+    const dLat = (lat2 - lat1) * (Math.PI / 180);
+    const dLon = (lon2 - lon1) * (Math.PI / 180);
+    const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) + Math.cos(lat1 * (Math.PI / 180)) * Math.cos(lat2 * (Math.PI / 180)) * Math.sin(dLon / 2) * Math.sin(dLon / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return R * c;
 }
 
 // --- Helper Functions ---
