@@ -3,7 +3,14 @@
 document.addEventListener('DOMContentLoaded', () => {
     const mapCenter = [13.7563, 100.5018];
     const map = L.map('map').setView(mapCenter, 15);
-    const stopIcon = L.icon({ iconUrl: 'https://img.icons8.com/officel/80/bus-stop.png', iconSize: [30, 30] });
+     // --- ** 1. สร้าง Custom Icon ของเรา ** ---
+    const busStopIcon = L.icon({
+        iconUrl: 'https://img.icons8.com/plasticine/100/bus-stop.png',
+        iconSize: [40, 40], // ขนาดของไอคอน (กว้าง, สูง)
+        iconAnchor: [20, 40], // จุดที่ "ปลายหมุด" จะปักลงบนแผนที่ (ครึ่งหนึ่งของความกว้าง, ความสูงทั้งหมด)
+        popupAnchor: [0, -40] // จุดที่ Popup จะเด้งขึ้นมา (สัมพันธ์กับ iconAnchor)
+    });
+  
 
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
 
@@ -33,13 +40,24 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- ** สิ้นสุดส่วนที่เพิ่มเข้ามา ** ---
   
     // 1. ดึงและแสดงจุดจอดที่มีอยู่แล้ว
+   
+    // 2. ดึงและแสดงจุดจอดที่มีอยู่แล้ว (โดยใช้ไอคอนใหม่)
     async function loadStops() {
         const response = await fetch('/api/bus-stops');
         const stops = await response.json();
+        
+        // ล้าง marker เก่าก่อนวาดใหม่
+        for (let id in existingMarkers) {
+            map.removeLayer(existingMarkers[id]);
+        }
+        existingMarkers = {};
+        
         stops.forEach(stop => {
-            const marker = L.marker([stop.location.latitude, stop.location.longitude], { icon: stopIcon })
-                .addTo(map)
-                .bindPopup(`<b>${stop.name}</b><br/><button onclick="deleteStop('${stop.id}')">ลบจุดนี้</button>`);
+            const marker = L.marker([stop.location.latitude, stop.location.longitude], { 
+                icon: busStopIcon // <-- ** 3. บอกให้ใช้ไอคอนนี้ **
+            })
+            .addTo(map)
+            .bindPopup(`<b>${stop.name}</b><br/><button onclick="deleteStop('${stop.id}')">ลบจุดนี้</button>`);
             existingMarkers[stop.id] = marker;
         });
     }
