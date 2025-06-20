@@ -1,1 +1,34 @@
-<!DOCTYPE html><html lang="th"><head><title>Bus Stop Manager</title><meta name="viewport" content="width=device-width, initial-scale=1.0"><link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" /><style>body,html{height:100%;margin:0;padding:0;font-family:sans-serif;}#map{width:100%;height:100%;}</style></head><body><div id="map"></div><script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script><script src="admin.js"></script></body></html>
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <title>Bus Stop Manager</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    
+    <!-- 1. Import CSS ของ Leaflet (เหมือนเดิม) -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    
+    <!-- ** 2. Import CSS ของ GeoSearch Plugin (เพิ่มเข้ามาใหม่) ** -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet-geosearch@3.11.0/dist/geosearch.css" />
+
+    <style>
+        body, html { height: 100%; margin: 0; padding: 0; font-family: sans-serif; }
+        #map { width: 100%; height: 100%; }
+        /* ทำให้ Pop-up ของ Leaflet ดูดีขึ้นเล็กน้อย */
+        .leaflet-popup-content-wrapper { padding: 10px; }
+        .leaflet-popup-content input { margin-top: 5px; margin-bottom: 10px; padding: 5px; width: 95%; }
+        .leaflet-popup-content button { padding: 5px 10px; cursor: pointer; }
+    </style>
+</head>
+<body>
+    <div id="map"></div>
+
+    <!-- 3. Import JavaScript ของ Leaflet (เหมือนเดิม) -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+    <!-- ** 4. Import JavaScript ของ GeoSearch Plugin (เพิ่มเข้ามาใหม่) ** -->
+    <script src="https://unpkg.com/leaflet-geosearch@3.11.0/dist/geosearch.umd.js"></script>
+
+    <!-- 5. Import สคริปต์ของเรา (เหมือนเดิม) -->
+    <script src="admin.js"></script>
+</body>
+</html>

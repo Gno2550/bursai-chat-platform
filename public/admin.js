@@ -1,3 +1,5 @@
+// admin.js (เวอร์ชันอัปเกรด เพิ่มระบบค้นหา)
+
 document.addEventListener('DOMContentLoaded', () => {
     const mapCenter = [13.7563, 100.5018];
     const map = L.map('map').setView(mapCenter, 15);
@@ -7,6 +9,29 @@ document.addEventListener('DOMContentLoaded', () => {
 
     let existingMarkers = {};
 
+    // --- ** 1. เพิ่มระบบค้นหา (GeoSearch) ** ---
+    // สร้าง Provider (ใช้ OpenStreetMap ฟรี)
+    const provider = new GeoSearch.OpenStreetMapProvider();
+    
+    // สร้าง Control (กล่องค้นหา)
+    const searchControl = new GeoSearch.GeoSearchControl({
+      provider: provider,
+      style: 'bar', // รูปแบบของช่องค้นหา
+      showMarker: true, // แสดงหมุดที่ตำแหน่งที่ค้นหา
+      showPopup: false, // ไม่ต้องแสดง Pop-up อัตโนมัติ
+      marker: {
+        icon: new L.Icon.Default(),
+        draggable: false,
+      },
+      autoClose: true, // ปิดผลการค้นหาเมื่อเลือกตำแหน่ง
+      searchLabel: 'ค้นหาสถานที่หรือพิกัด...', // ข้อความในช่องค้นหา
+      keepResult: true // ให้หมุดผลการค้นหาคงอยู่
+    });
+
+    // เพิ่ม Control ลงในแผนที่
+    map.addControl(searchControl);
+    // --- ** สิ้นสุดส่วนที่เพิ่มเข้ามา ** ---
+  
     // 1. ดึงและแสดงจุดจอดที่มีอยู่แล้ว
     async function loadStops() {
         const response = await fetch('/api/bus-stops');
