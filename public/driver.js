@@ -1,14 +1,30 @@
-// driver.js (Automatic GPS Tracking)
+// driver.js (Automatic GPS Tracking - FINAL VERSION)
 document.addEventListener('DOMContentLoaded', () => {
     const statusDiv = document.getElementById('status');
     const startBtn = document.getElementById('start-tracking');
     const stopBtn = document.getElementById('stop-tracking');
-    let watchId = null; // ตัวแปรสำหรับเก็บ ID ของ watchPosition
+    let watchId = null; 
 
     const API_URL = '/api/update-live-location';
 
     function updateLocation(position) {
         const { latitude, longitude, speed, heading } = position.coords;
+
+        // --- **[แก้ไข]** เพิ่มด่านตรวจพิกัด ---
+        // 1. ตรวจสอบว่าพิกัดไม่ใช่ (0, 0)
+        // 2. ตรวจสอบคร่าวๆ ว่าพิกัดอยู่ในประเทศไทย (ละติจูด 5-21, ลองจิจูด 97-106)
+        if (latitude === 0 && longitude === 0) {
+            statusDiv.textContent = 'กำลังรอสัญญาณ GPS ที่แม่นยำ...';
+            statusDiv.style.color = 'orange';
+            return; // ไม่ส่งข้อมูลถ้าพิกัดเป็น 0,0
+        }
+        if (latitude < 5 || latitude > 21 || longitude < 97 || longitude > 106) {
+             statusDiv.textContent = `พิกัดไม่ถูกต้อง (${latitude.toFixed(2)}, ${longitude.toFixed(2)}), กำลังหาตำแหน่งใหม่...`;
+             statusDiv.style.color = 'orange';
+             return; // ไม่ส่งข้อมูลถ้าพิกัดอยู่นอกประเทศไทย
+        }
+        // --- สิ้นสุดส่วนแก้ไข ---
+
         const statusText = `Lat: ${latitude.toFixed(5)}, Lng: ${longitude.toFixed(5)}`;
         statusDiv.textContent = `กำลังส่งตำแหน่ง... (${statusText})`;
         statusDiv.style.color = 'blue';
@@ -19,7 +35,6 @@ document.addEventListener('DOMContentLoaded', () => {
             body: JSON.stringify({
                 latitude,
                 longitude,
-                // ส่งความเร็วและทิศทางไปด้วย (ถ้ามี) เพื่อการคำนวณที่แม่นยำขึ้นในอนาคต
                 speed: speed || 0, 
                 heading: heading || 0 
             })
@@ -30,26 +45,44 @@ document.addEventListener('DOMContentLoaded', () => {
                 statusDiv.textContent = `ส่งตำแหน่งล่าสุดแล้ว! (${new Date().toLocaleTimeString()})`;
                 statusDiv.style.color = 'green';
             } else {
-                throw new Error(data.message);
+                throw new Error(data.message || 'Server returned an error');
             }
         })
         .catch(err => {
-            statusDiv.textContent = `เกิดข้อผิดพลาด: ${err.message}`;
+            statusDiv.textContent = `เกิดข้อผิดพลาดในการส่งข้อมูล: ${err.message}`;
             statusDiv.style.color = 'red';
         });
     }
 
     function handleError(error) {
-        statusDiv.textContent = `เกิดข้อผิดพลาดในการเข้าถึง GPS: ${error.message}`;
+        let message = '';
+        switch(error.code) {
+            case error.PERMISSION_DENIED:
+                message = "คุณปฏิเสธการเข้าถึงตำแหน่ง";
+                break;
+            case error.POSITION_UNAVAILABLE:
+                message = "ไม่สามารถหาตำแหน่งปัจจุบันได้";
+                break;
+            case error.TIMEOUT:
+                message = "หมดเวลาในการค้นหาตำแหน่ง";
+                break;
+            default:
+                message = "เกิดข้อผิดพลาดที่ไม่รู้จัก";
+                break;
+        }
+        statusDiv.textContent = `เกิดข้อผิดพลาด GPS: ${message}`;
         statusDiv.style.color = 'red';
     }
 
     startBtn.addEventListener('click', () => {
-        if (watchId) return; // ป้องกันการกดซ้ำ
+        if (!navigator.geolocation) {
+            statusDiv.textContent = 'เบราว์เซอร์นี้ไม่รองรับ Geolocation';
+            return;
+        }
+        if (watchId) return;
         
-        // เริ่มการติดตามตำแหน่งแบบ real-time
         watchId = navigator.geolocation.watchPosition(updateLocation, handleError, {
-            enableHighAccuracy: true, // ขอความแม่นยำสูงสุด
+            enableHighAccuracy: true,
             timeout: 10000,
             maximumAge: 0
         });
@@ -61,10 +94,10 @@ document.addEventListener('DOMContentLoaded', () => {
     stopBtn.addEventListener('click', () => {
         if (!watchId) return;
 
-        // หยุดการติดตาม
         navigator.geolocation.clearWatch(watchId);
         watchId = null;
         statusDiv.textContent = 'หยุดการติดตามแล้ว';
+        statusDiv.style.color = 'black';
         startBtn.disabled = false;
         stopBtn.disabled = true;
     });

@@ -20,7 +20,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const map = L.map('map', {
         maxBounds: mapBounds,
-        minZoom: 15
+        minZoom: 18
     }).setView(mapCenter, mapZoom);
     
     let cartMarker = null;
