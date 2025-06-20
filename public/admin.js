@@ -13,7 +13,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const map = L.map('map', {
         maxBounds: mapBounds,   // จำกัดขอบเขตการเลื่อน
         minZoom: 15,            // จำกัดไม่ให้ซูมออกไปไกลเกิน
-    }).setView(mapCenter, 16); // เริ่มต้นที่ zoom level 16
+    }).setView(mapCenter, 20); // เริ่มต้นที่ zoom level 16
      // --- ** 1. สร้าง Custom Icon ของเรา ** ---
     const busStopIcon = L.icon({
         iconUrl: 'https://img.icons8.com/plasticine/100/bus-stop.png',

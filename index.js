@@ -370,13 +370,6 @@ async function callNextUser(freedRoomNumber) {
     return client.pushMessage(nextUserData.lineUserId, notificationMessage);
 }
 
-// --- Bugo - Golf Cart Simulator ---
-const busStops = [
-    { name: "หน้าอาคาร A", location: new admin.firestore.GeoPoint(13.7580, 100.5018) },
-    { name: "โรงอาหารกลาง", location: new admin.firestore.GeoPoint(13.7565, 100.5035) },
-    { name: "หอสมุด", location: new admin.firestore.GeoPoint(13.7540, 100.5025) },
-    { name: "คณะวิศวกรรมศาสตร์", location: new admin.firestore.GeoPoint(13.7555, 100.5005) },
-];
 async function updateCartPosition() {
     const cartRef = db.collection('golf_carts').doc('cart_01');
     const cartDoc = await cartRef.get();
