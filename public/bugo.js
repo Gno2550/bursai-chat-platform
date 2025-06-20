@@ -10,11 +10,11 @@ document.addEventListener('DOMContentLoaded', () => {
     const mapZoom = 18;
 
     const cartIcon = L.icon({
-        iconUrl: '/golf-cart.png', // <-- **[แก้ไข]** เปลี่ยนเป็น Local Path
+        iconUrl: 'https://cdn.glitch.global/4a2b378a-09fc-47bc-b98f-5ba993690b44/icons8-golf-cart-80.png?v=1750438227729', // <-- **[แก้ไข]** เปลี่ยนเป็น Local Path
         iconSize: [50, 50], iconAnchor: [25, 50], popupAnchor: [0, -50]
     });
     const stopIcon = L.icon({
-        iconUrl: '/bus-stop.png', // <-- **[แก้ไข]** เปลี่ยนเป็น Local Path
+        iconUrl: 'https://cdn.glitch.global/4a2b378a-09fc-47bc-b98f-5ba993690b44/icons8-bus-stop-96.png?v=1750438123833', // <-- **[แก้ไข]** เปลี่ยนเป็น Local Path
         iconSize: [40, 40], iconAnchor: [20, 40], popupAnchor: [0, -40]
     });
 
