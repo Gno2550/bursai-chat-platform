@@ -333,7 +333,7 @@ document.addEventListener('DOMContentLoaded', () => {
         iconSize: [50, 50], iconAnchor: [25, 50], popupAnchor: [0, -50]
     });
     const stopIcon = L.icon({
-        iconUrl: 'https://cdn.glitch.global/4a2b378a-09fc-47bc-b98f-5ba993690b44/icons8-bus-stop-96.png?v=1750438123833', // ** ใส่ URL ของคุณ **
+        iconUrl: 'https://cdn.glitch.global/4a2b378a-09fc-47bc-b98f-5ba993690b44/icons8-bus-stop-96.png?v=1750447498203', // ** ใส่ URL ของคุณ **
         iconSize: [40, 40], iconAnchor: [20, 40], popupAnchor: [0, -40]
     });
 
@@ -442,8 +442,7 @@ document.addEventListener('DOMContentLoaded', () => {
             } catch (err) { console.error("Failed to fetch route:", err); }
         }
     }
-
-    drawBusStops();
+drawBusStops();
     updateCartOnMap();
     setInterval(updateCartOnMap, UPDATE_INTERVAL);
 });
