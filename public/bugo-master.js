@@ -316,12 +316,13 @@ L.Marker.movingMarker = function (latlngs, duration, options) {
 
 
 
-// bugo.js (เวอร์ชันสำหรับรวมไฟล์)
+// bugo.js (ส่วนที่ 3 สำหรับ bugo-master.js - เพิ่มการตรวจสอบข้อมูลเก่า)
 document.addEventListener('DOMContentLoaded', () => {
     const API_URL_CART = '/api/bugo-status';
     const API_URL_STOPS = '/api/bus-stops';
     const UPDATE_INTERVAL = 5000;
     const ANIMATION_DURATION = 4500;
+    const INACTIVE_THRESHOLD_SECONDS = 60; // **[เพิ่ม]** กำหนดว่าถ้าข้อมูลเก่าเกิน 60 วินาที ให้ถือว่าออฟไลน์
 
     const mapCenter = [13.9615, 100.6230];
     const mapBounds = [ [13.944, 100.61], [13.974, 100.64] ];
@@ -348,28 +349,43 @@ document.addEventListener('DOMContentLoaded', () => {
         attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
     }).addTo(map);
 
-    async function drawBusStops() {
-        try {
-            const response = await fetch(API_URL_STOPS);
-            const stops = await response.json();
-            stops.forEach(stop => {
-                if (stop && stop.location && typeof stop.location._latitude === 'number' && typeof stop.location._longitude === 'number') {
-                     L.marker([stop.location._latitude, stop.location._longitude], { icon: stopIcon })
-                        .addTo(map)
-                        .bindPopup(`<b>${stop.name}</b>`);
-                }
-            });
-        } catch (err) { console.error("Could not draw bus stops", err); }
-    }
+    async function drawBusStops() { /* ... ไม่ต้องแก้ไข ... */ }
 
     async function updateCartOnMap() {
         try {
             const response = await fetch(API_URL_CART);
             if (!response.ok) throw new Error('Network response was not ok');
             const data = await response.json();
+
+            // --- **[เพิ่ม Logic ตรวจสอบอายุข้อมูล]** ---
+            const lastUpdateTime = new Date(data.lastUpdate._seconds * 1000);
+            const now = new Date();
+            const secondsSinceLastUpdate = (now.getTime() - lastUpdateTime.getTime()) / 1000;
+
+            if (secondsSinceLastUpdate > INACTIVE_THRESHOLD_SECONDS) {
+                // ถ้าข้อมูลเก่าเกินไป ให้ถือว่าคนขับออฟไลน์
+                document.getElementById('cart-status').textContent = 'คนขับไม่ได้อยู่ในระบบ (ออฟไลน์)';
+                document.getElementById('last-update').textContent = lastUpdateTime.toLocaleTimeString('th-TH');
+                document.getElementById('distance').textContent = 'N/A';
+                document.getElementById('eta').textContent = 'N/A';
+                
+                // ซ่อน Marker และเส้นทางของรถ
+                if (cartMarker) {
+                    map.removeLayer(cartMarker);
+                    cartMarker = null;
+                }
+                if (routeLine) {
+                    map.removeLayer(routeLine);
+                    routeLine = null;
+                }
+                return; // จบการทำงานฟังก์ชันนี้ ไม่ต้องทำส่วนที่เหลือ
+            }
+            // --- สิ้นสุด Logic ตรวจสอบ ---
+
+
             const cartPosition = [data.location._latitude, data.location._longitude];
 
-            // ใช้ L.movingMarker (m เล็ก)
+            // สร้างหรือเคลื่อนย้าย Marker
             if (!cartMarker) {
                 cartMarker = L.Marker.movingMarker([cartPosition, cartPosition], [], {
                     autostart: true,
@@ -381,7 +397,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
             cartMarker.bindPopup(`<b>Bugo 1</b><br>สถานะ: ${data.status}`).openPopup();
             document.getElementById('cart-status').textContent = data.status || 'กำลังคำนวณ...';
-            document.getElementById('last-update').textContent = new Date(data.lastUpdate._seconds * 1000).toLocaleTimeString('th-TH');
+            document.getElementById('last-update').textContent = lastUpdateTime.toLocaleTimeString('th-TH');
+            
             if (data.distanceToNextStop !== undefined) {
                 document.getElementById('distance').textContent = data.distanceToNextStop.toFixed(0);
                 document.getElementById('eta').textContent = data.etaMinutes.toFixed(0);
@@ -397,7 +414,6 @@ document.addEventListener('DOMContentLoaded', () => {
             document.getElementById('cart-status').textContent = 'ขาดการเชื่อมต่อ';
         }
     }
-
     async function drawRoute(data, cartPosition) {
         if (routeLine) {
             map.removeLayer(routeLine);
