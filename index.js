@@ -145,6 +145,38 @@ app.get('/api/consent-response', async (req, res) => {
 // --- Event Handler (แก้ไข Logic การลงทะเบียน) ---
 async function handleEvent(event) {
     
+    if (lowerCaseMessage === 'bugo') {
+    const projectUrl = `https://${process.env.PROJECT_DOMAIN}.glitch.me`;
+    const bugoTrackerUrl = `${projectUrl}/bugo.html`;
+
+    return client.replyMessage(event.replyToken, {
+        type: 'flex',
+        altText: 'เปิดระบบติดตามรถกอล์ฟ Bugo',
+        contents: {
+            type: 'bubble',
+            body: {
+                type: 'box',
+                layout: 'vertical',
+                contents: [
+                    { type: 'text', text: 'Bugo Tracker', weight: 'bold', size: 'xl' },
+                    { type: 'text', text: 'ระบบติดตามตำแหน่งรถกอล์ฟแบบ Real-time แตะปุ่มด้านล่างเพื่อเปิดแผนที่ครับ', wrap: true, margin: 'md' }
+                ]
+            },
+            footer: {
+                type: 'box',
+                layout: 'vertical',
+                contents: [{
+                    type: 'button',
+                    style: 'primary',
+                    height: 'sm',
+                    action: { type: 'uri', label: 'เปิดแผนที่ติดตาม', uri: bugoTrackerUrl }
+                }]
+            }
+        }
+    });
+}
+  
+  
     // ** ลบส่วนจัดการ postback ออก เพราะไม่ได้ใช้แล้ว **
     if (event.type !== 'message' || event.message.type !== 'text') {
         return Promise.resolve(null);
@@ -313,7 +345,62 @@ async function callNextUser(freedRoomNumber) {
     const notificationMessage = { type: 'text', text: `ถึงคิวของคุณ ${nextUserData.displayName} แล้วครับ! (คิวที่ ${nextUserData.queueNumber})\nเชิญที่ห้องหมายเลข ${freedRoomNumber} ได้เลย` };
     console.log(`Calling user ${nextUserData.displayName} (Queue: ${nextUserData.queueNumber}) to Room ${freedRoomNumber}`);
     return client.pushMessage(nextUserData.lineUserId, notificationMessage);
+}// --- ** Bugo - Golf Cart Simulator ** ---
+
+// 1. กำหนดจุดจอดรถ (Bus Stops) เป็นพิกัด Lat/Lng
+const busStops = [
+    { name: "หน้าอาคาร A", location: new admin.firestore.GeoPoint(13.7580, 100.5018) },
+    { name: "โรงอาหารกลาง", location: new admin.firestore.GeoPoint(13.7565, 100.5035) },
+    { name: "หอสมุด", location: new admin.firestore.GeoPoint(13.7540, 100.5025) },
+    { name: "คณะวิศวกรรมศาสตร์", location: new admin.firestore.GeoPoint(13.7555, 100.5005) },
+    // เพิ่มจุดจอดได้ตามต้องการ
+];
+
+// 2. ฟังก์ชันสำหรับอัปเดตตำแหน่งรถกอล์ฟ
+async function updateCartPosition() {
+    const cartRef = db.collection('golf_carts').doc('cart_01');
+    const cartDoc = await cartRef.get();
+    if (!cartDoc.exists) {
+        console.log("Cart 'cart_01' not found in Firestore. Skipping update.");
+        return;
+    }
+
+    const currentData = cartDoc.data();
+    // หาว่าจุดต่อไปคือที่ไหน (ถ้าถึงจุดสุดท้ายแล้วให้วนกลับไปที่ 0)
+    let nextStopIndex = (currentData.currentStopIndex + 1) % busStops.length;
+    
+    const nextStop = busStops[nextStopIndex];
+
+    // อัปเดตตำแหน่งใน Firestore
+    await cartRef.update({
+        location: nextStop.location,
+        status: `Moving to ${nextStop.name}`,
+        currentStopIndex: nextStopIndex,
+        lastUpdate: new Date()
+    });
+
+    console.log(`Bugo 1 moved to: ${nextStop.name} (Lat: ${nextStop.location.latitude}, Lng: ${nextStop.location.longitude})`);
 }
+
+// 3. เริ่มการทำงานของ Simulator
+// สั่งให้ฟังก์ชัน updateCartPosition ทำงานทุกๆ 15 วินาที
+setInterval(updateCartPosition, 15000); 
+
+app.get('/api/bugo-status', async (req, res) => {
+    try {
+        const cartSnapshot = await db.collection('golf_carts').doc('cart_01').get();
+        if (!cartSnapshot.exists) {
+            return res.status(404).json({ error: 'Cart not found' });
+        }
+        // ส่งข้อมูลทั้งหมดของรถกลับไปเป็น JSON
+        res.set('Access-Control-Allow-Origin', '*');
+        res.json(cartSnapshot.data());
+    } catch (error) {
+        console.error("Bugo Status API Error:", error);
+        res.status(500).json({ error: 'Failed to fetch cart status' });
+    }
+});
+
 
 // --- Start Server ---
 const port = process.env.PORT || 3000;
