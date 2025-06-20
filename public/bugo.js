@@ -30,14 +30,17 @@ document.addEventListener('DOMContentLoaded', () => {
         attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
     }).addTo(map);
 
-    async function drawBusStops() {
+     async function drawBusStops() {
         try {
             const response = await fetch(API_URL_STOPS);
             const stops = await response.json();
             stops.forEach(stop => {
-                L.marker([stop.location.latitude, stop.location.longitude], { icon: stopIcon })
-                    .addTo(map)
-                    .bindPopup(`<b>${stop.name}</b>`);
+                // --- **[แก้ไข]** ตรวจสอบและใช้ ._latitude / ._longitude ---
+                if (stop && stop.location && typeof stop.location._latitude === 'number' && typeof stop.location._longitude === 'number') {
+                     L.marker([stop.location._latitude, stop.location._longitude], { icon: stopIcon })
+                        .addTo(map)
+                        .bindPopup(`<b>${stop.name}</b>`);
+                }
             });
         } catch (err) { console.error("Could not draw bus stops", err); }
     }

@@ -1,35 +1,40 @@
-// admin.js (เวอร์ชันปรับมุมกล้อง)
+// admin.js (เวอร์ชันแก้ไข Error Handling และชื่อ Field)
 document.addEventListener('DOMContentLoaded', () => {
-    // --- 1. กำหนดค่าพิกัดใหม่ ---
-    const mapCenter = [13.9615, 100.6230]; // <-- ค่าใหม่: เลื่อนขึ้น
-    const mapBounds = [
-        [13.944, 100.61], // <-- ค่าใหม่: เลื่อนขอบเขตขึ้น
-        [13.974, 100.64]  // <-- ค่าใหม่: เลื่อนขอบเขตขึ้น
-    ];
+    const mapCenter = [13.9615, 100.6230];
+    const mapBounds = [ [13.944, 100.61], [13.974, 100.64] ];
 
-    const map = L.map('map', {
-        maxBounds: mapBounds,
-        minZoom: 18,
-    }).setView(mapCenter, 18);
+    const map = L.map('map', { maxBounds: mapBounds, minZoom: 18, }).setView(mapCenter, 18);
     
     const busStopIcon = L.icon({
-        iconUrl: 'https://cdn.glitch.global/4a2b378a-09fc-47bc-b98f-5ba993690b44/icons8-bus-stop-96.png?v=1750438123833', // <-- **[แก้ไข]** เปลี่ยนเป็น Local Path
+        iconUrl: 'https://cdn.glitch.global/4a2b378a-09fc-47bc-b98f-5ba993690b44/icons8-bus-stop-96.png?v=1750438123833', // ** ใส่ URL จาก Asset ของคุณ **
         iconSize: [40, 40], iconAnchor: [20, 40], popupAnchor: [0, -40]
     });
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
     let existingMarkers = {};
 
     async function loadStops() {
-        const response = await fetch('/api/bus-stops');
-        const stops = await response.json();
-        for (let id in existingMarkers) { map.removeLayer(existingMarkers[id]); }
-        existingMarkers = {};
-        stops.forEach(stop => {
-            const marker = L.marker([stop.location.latitude, stop.location.longitude], { icon: busStopIcon })
-                .addTo(map)
-                .bindPopup(`<b>${stop.name}</b><br/><button onclick="deleteStop('${stop.id}')">ลบจุดนี้</button>`);
-            existingMarkers[stop.id] = marker;
-        });
+        try {
+            const response = await fetch('/api/bus-stops');
+            const stops = await response.json();
+            
+            for (let id in existingMarkers) { map.removeLayer(existingMarkers[id]); }
+            existingMarkers = {};
+            
+            stops.forEach(stop => {
+                if (stop && stop.location && typeof stop.location._latitude === 'number' && typeof stop.location._longitude === 'number') {
+                    // --- **[แก้ไข]** เปลี่ยนเป็น ._latitude และ ._longitude ---
+                    const marker = L.marker([stop.location._latitude, stop.location._longitude], { icon: busStopIcon })
+                        .addTo(map)
+                        .bindPopup(`<b>${stop.name}</b><br/><button onclick="deleteStop('${stop.id}')">ลบจุดนี้</button>`);
+                    existingMarkers[stop.id] = marker;
+                } else {
+                    console.warn("Skipping invalid stop data received from server:", stop);
+                }
+            });
+        } catch (error) {
+            console.error("Failed to load bus stops:", error);
+            alert("ไม่สามารถโหลดข้อมูลจุดจอดได้");
+        }
     }
 
     map.on('click', (e) => {
@@ -49,8 +54,7 @@ document.addEventListener('DOMContentLoaded', () => {
     window.deleteStop = async (id) => {
         if (!confirm('คุณแน่ใจหรือไม่ว่าจะลบจุดจอดนี้?')) return;
         await fetch(`/api/delete-bus-stop/${id}`, { method: 'DELETE' });
-        if (existingMarkers[id]) { map.removeLayer(existingMarkers[id]); delete existingMarkers[id]; }
-        loadStops(); // โหลดใหม่เพื่อให้แน่ใจว่าข้อมูลตรงกัน
+        loadStops();
     };
     
     loadStops();
