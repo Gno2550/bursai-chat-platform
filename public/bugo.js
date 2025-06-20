@@ -5,9 +5,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const UPDATE_INTERVAL = 5000;
     
     // --- ** 1. กำหนดค่าพิกัดใหม่ ** ---
-    const mapCenter = [13.9615, 100.6225]; // <-- ค่าใหม่: เลื่อนขึ้น
+    const mapCenter = [13.9615, 100.6230]; // <-- ค่าใหม่: เลื่อนขึ้น
     const mapBounds = [ [13.944, 100.61], [13.974, 100.64] ]; // <-- ค่าใหม่: เลื่อนขอบเขตขึ้น
-    const mapZoom = 16;
+    const mapZoom = 18;
 
     const cartIcon = L.icon({
         iconUrl: 'https://img.icons8.com/plasticine/100/golf-cart.png',

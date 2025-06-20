@@ -1,7 +1,7 @@
 // admin.js (เวอร์ชันปรับมุมกล้อง)
 document.addEventListener('DOMContentLoaded', () => {
     // --- ** 1. กำหนดค่าพิกัดใหม่ ** ---
-    const mapCenter = [13.99, 100.8]; // <-- ค่าใหม่: เลื่อนขึ้น
+    const mapCenter = [13.9615, 100.6230]; // <-- ค่าใหม่: เลื่อนขึ้น
     const mapBounds = [
         [13.944, 100.61], // <-- ค่าใหม่: เลื่อนขอบเขตขึ้น
         [13.974, 100.64]  // <-- ค่าใหม่: เลื่อนขอบเขตขึ้น
@@ -9,8 +9,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const map = L.map('map', {
         maxBounds: mapBounds,
-        minZoom: 15,
-    }).setView(mapCenter, 16);
+        minZoom: 18,
+    }).setView(mapCenter, 18);
     
     const busStopIcon = L.icon({
         iconUrl: 'https://img.icons8.com/plasticine/100/bus-stop.png',
