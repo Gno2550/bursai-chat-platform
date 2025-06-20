@@ -18,7 +18,7 @@
     "cross-fetch": "^3.2.0",
     "jsonwebtoken": "^9.0.2",
     "qrcode": "^1.5.4",
-    "bcryptjs": "^3.0.2"
+    "bcryptjs": "^3.0.2",
   },
   "license": "MIT"
 }
