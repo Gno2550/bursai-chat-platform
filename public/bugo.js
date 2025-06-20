@@ -54,7 +54,7 @@ document.addEventListener('DOMContentLoaded', () => {
             // **[แก้ไข]** Logic การสร้างและเคลื่อนย้าย Marker ทั้งหมด
             if (!cartMarker) {
                 // สร้างครั้งแรกด้วย L.Marker.movingMarker
-                cartMarker = L.Marker.movingMarker([cartPosition, cartPosition], [], {
+                cartMarker = L.Marker.MovingMarker([cartPosition, cartPosition], [], {
                     autostart: true,
                     icon: cartIcon
                 }).addTo(map);
