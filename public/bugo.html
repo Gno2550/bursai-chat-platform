@@ -4,10 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Bugo - Real-time Golf Cart Tracker</title>
-    
-    <!-- **[แก้ไข]** เราจะใช้ไฟล์ CSS ของ Leaflet จาก CDN ไปก่อนเพื่อความง่าย -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-
     <style>
         html, body { height: 100%; margin: 0; padding: 0; font-family: sans-serif; }
         #map { width: 100%; height: 85%; }
@@ -25,14 +22,8 @@
         <p>อัปเดตล่าสุด: <span id="last-update">--:--:--</span></p>
     </div>
 
-    <!-- ** [แก้ไขทั้งหมด] ** เรียกใช้ทุกอย่างตามลำดับที่ถูกต้องจากไฟล์ในเครื่อง -->
-    <!-- 1. โหลด Leaflet Core ก่อนเสมอ -->
-    <script src="/leaflet.js"></script>
-    
-    <!-- 2. โหลด Plugin ที่ต้องการใช้ Leaflet Core -->
-    <script src="/moving-marker.js"></script>
+    <!-- ** [แก้ไข] ** เรียกใช้ไฟล์ Master Script เพียงไฟล์เดียว -->
+    <script src="/bugo-master.js"></script>
 
-    <!-- 3. โหลดสคริปต์ของเราเป็นลำดับสุดท้าย -->
-    <script src="bugo.js"></script>
 </body>
 </html>

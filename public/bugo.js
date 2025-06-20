@@ -10,11 +10,11 @@ document.addEventListener('DOMContentLoaded', () => {
     const mapZoom = 18;
 
     const cartIcon = L.icon({
-        iconUrl: 'YOUR_ASSET_URL_FOR_GOLF_CART', // ** ใส่ URL ของคุณ **
+        iconUrl: 'https://cdn.glitch.global/4a2b378a-09fc-47bc-b98f-5ba993690b44/icons8-golf-cart-80.png?v=1750438227729', // ** ใส่ URL ของคุณ **
         iconSize: [50, 50], iconAnchor: [25, 50], popupAnchor: [0, -50]
     });
     const stopIcon = L.icon({
-        iconUrl: 'YOUR_ASSET_URL_FOR_BUS_STOP', // ** ใส่ URL ของคุณ **
+        iconUrl: 'https://cdn.glitch.global/4a2b378a-09fc-47bc-b98f-5ba993690b44/icons8-bus-stop-96.png?v=1750438123833', // ** ใส่ URL ของคุณ **
         iconSize: [40, 40], iconAnchor: [20, 40], popupAnchor: [0, -40]
     });
 
