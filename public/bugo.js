@@ -1,12 +1,12 @@
-// bugo.js
-
-// --- 1. การตั้งค่าเริ่มต้น ---
-const API_URL = '/api/bugo-status';
-const UPDATE_INTERVAL = 5000; // 5 วินาที
-
-// พิกัดจุดศูนย์กลางของแผนที่และระดับการซูม
-const mapCenter = [13.7563, 100.5018]; 
-const mapZoom = 15;
+// bugo.js (เวอร์ชันล็อกแผนที่)
+document.addEventListener('DOMContentLoaded', () => {
+    // --- การตั้งค่าเริ่มต้น (ใช้ค่าใหม่) ---
+    const API_URL_CART = '/api/bugo-status';
+    const API_URL_STOPS = '/api/bus-stops';
+    const UPDATE_INTERVAL = 5000;
+    const mapCenter = [13.9575, 100.6225]; // ศูนย์กลาง: เซียร์ รังสิต
+    const mapBounds = [ [13.94, 100.61], [13.97, 100.64] ];
+    const mapZoom = 16; // ซูมเข้ามาใกล้ขึ้น
 
 // ไอคอนสำหรับรถกอล์ฟและป้ายรถ
 const cartIcon = L.icon({ iconUrl: 'https://img.icons8.com/plasticine/100/golf-cart.png', iconSize: [50, 50] });

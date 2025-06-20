@@ -1,8 +1,19 @@
 // admin.js (เวอร์ชันอัปเกรด เพิ่มระบบค้นหา)
 
+// admin.js (เวอร์ชันล็อกแผนที่)
 document.addEventListener('DOMContentLoaded', () => {
-    const mapCenter = [13.7563, 100.5018];
-    const map = L.map('map').setView(mapCenter, 15);
+    // --- ** 1. กำหนดค่าพิกัดใหม่ ** ---
+    const mapCenter = [13.9575, 100.6225]; // ศูนย์กลาง: เซียร์ รังสิต
+    const mapBounds = [
+        [13.94, 100.61], // SW corner
+        [13.97, 100.64]  // NE corner
+    ];
+
+    // --- ** 2. เพิ่ม Options ตอนสร้างแผนที่ ** ---
+    const map = L.map('map', {
+        maxBounds: mapBounds,   // จำกัดขอบเขตการเลื่อน
+        minZoom: 15,            // จำกัดไม่ให้ซูมออกไปไกลเกิน
+    }).setView(mapCenter, 16); // เริ่มต้นที่ zoom level 16
      // --- ** 1. สร้าง Custom Icon ของเรา ** ---
     const busStopIcon = L.icon({
         iconUrl: 'https://img.icons8.com/plasticine/100/bus-stop.png',
