@@ -96,6 +96,28 @@ app.post('/api/verify-check-in', async (req, res) => {
         else { console.error("Verify Check-in Error:", error); res.status(500).json({ success: false, message: 'เกิดข้อผิดพลาดในระบบ' }); }
     }
 });
+app.get('/api/consent-response', async (req, res) => {
+    try {
+        const { choice, token } = req.query;
+        if (!token || !choice) { return res.status(400).send('Missing required parameters.'); }
+        const decoded = jwt.verify(token, process.env.JWT_SECRET);
+        const userId = decoded.uid;
+        const projectUrl = `https://${process.env.PROJECT_DOMAIN}.glitch.me`;
+        if (choice === 'agree') {
+            await db.collection('users').doc(userId).set({ consentGiven: true, consentTimestamp: new Date() }, { merge: true });
+            await client.pushMessage(userId, { type: 'text', text: 'ขอบคุณที่ยินยอมครับ ขั้นตอนต่อไป กรุณาพิมพ์เบอร์โทรศัพท์ 10 หลักของท่านเพื่อใช้ในการลงทะเบียนครับ (ตัวอย่าง: 0812345678)' });
+            res.redirect(`${projectUrl}/consent_success.html`);
+        } else if (choice === 'disagree') {
+            await client.pushMessage(userId, { type: 'text', text: 'ท่านได้ปฏิเสธการให้ข้อมูล ทางเราจึงไม่สามารถดำเนินการลงทะเบียนให้ท่านได้ ขออภัยในความไม่สะดวกครับ' });
+            res.redirect(`${projectUrl}/consent_declined.html`);
+        } else {
+            res.status(400).send('Invalid choice.');
+        }
+    } catch (error) {
+        console.error("Consent Response Error:", error);
+        res.status(500).send('An error occurred.');
+    }
+});
 app.get('/api/bugo-status', async (req, res) => {
     try {
         const cartSnapshot = await db.collection('golf_carts').doc('cart_01').get();
@@ -170,8 +192,10 @@ app.post('/api/update-live-location', async (req, res) => {
     }
 });
 
-// --- ** ส่วนจัดการ Logic หลักของบอท (handleEvent) - จัดโครงสร้างใหม่ ** ---
+// --- ** ส่วนจัดการ Logic หลักของบอท (handleEvent) ** ---
 async function handleEvent(event) {
+    // *** นี่คือโครงสร้างที่แก้ไขแล้ว ***
+    
     // 1. จัดการ Event ที่ไม่ใช่ Message ก่อน
     if (event.type === 'postback') {
         return handlePostback(event);
@@ -338,6 +362,8 @@ async function handleTextMessage(event) {
         return client.replyMessage(event.replyToken, { type: 'text', text: 'ขออภัยครับ เกิดข้อผิดพลาดในระบบ' });
     }
 }
+
+// --- Helper Functions ---
 function getDistanceFromLatLonInM(lat1, lon1, lat2, lon2) {
     const R = 6371e3;
     const dLat = (lat2 - lat1) * (Math.PI / 180);
@@ -346,8 +372,6 @@ function getDistanceFromLatLonInM(lat1, lon1, lat2, lon2) {
     const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
     return R * c;
 }
-
-// --- Helper Functions ---
 function createConsentBubble() {
   return {
     type: 'bubble',
@@ -370,21 +394,9 @@ async function callNextUser(freedRoomNumber) {
     return client.pushMessage(nextUserData.lineUserId, notificationMessage);
 }
 
-async function updateCartPosition() {
-    const cartRef = db.collection('golf_carts').doc('cart_01');
-    const cartDoc = await cartRef.get();
-    if (!cartDoc.exists) {
-        console.log("Cart 'cart_01' not found. Creating it at the first stop.");
-        await cartRef.set({ name: 'Bugo 1', status: 'STOPPED', location: busStops[0].location, currentStopIndex: 0, lastUpdate: new Date() });
-        return;
-    }
-    const currentData = cartDoc.data();
-    let nextStopIndex = (currentData.currentStopIndex + 1) % busStops.length;
-    const nextStop = busStops[nextStopIndex];
-    await cartRef.update({ location: nextStop.location, status: `Moving to ${nextStop.name}`, currentStopIndex: nextStopIndex, lastUpdate: new Date() });
-    console.log(`Bugo 1 moved to: ${nextStop.name} (Lat: ${nextStop.location.latitude}, Lng: ${nextStop.location.longitude})`);
-}
-setInterval(updateCartPosition, 15000); 
+// ** ลบ Simulator เก่าทิ้ง **
+// async function updateCartPosition() { ... }
+// setInterval(updateCartPosition, 15000); 
 
 // --- Start Server ---
 const port = process.env.PORT || 3000;
