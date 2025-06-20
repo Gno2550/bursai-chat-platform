@@ -391,11 +391,20 @@ document.addEventListener('DOMContentLoaded', () => {
                     autostart: true,
                     icon: cartIcon
                 }).addTo(map);
+                // --- **[แก้ไขจุดที่ 2]** สร้าง Popup และปิด autoPan ---
+                cartMarker.bindPopup(`<b>Bugo 1</b><br>สถานะ: กำลังโหลด...`, { 
+                    autoPan: false, // ปิดการเลื่อนแผนที่อัตโนมัติ
+                    closeButton: false 
+                }).openPopup();
+                // --- สิ้นสุดการแก้ไขจุดที่ 2 ---
+            
             } else {
                 cartMarker.moveTo(cartPosition, ANIMATION_DURATION);
             }
 
-            cartMarker.bindPopup(`<b>Bugo 1</b><br>สถานะ: ${data.status}`).openPopup();
+             // อัปเดตเนื้อหาใน Popup ที่มีอยู่แล้ว
+            cartMarker.getPopup().setContent(`<b>Bugo 1</b><br>สถานะ: ${data.status}`);
+
             document.getElementById('cart-status').textContent = data.status || 'กำลังคำนวณ...';
             document.getElementById('last-update').textContent = lastUpdateTime.toLocaleTimeString('th-TH');
             
@@ -414,6 +423,7 @@ document.addEventListener('DOMContentLoaded', () => {
             document.getElementById('cart-status').textContent = 'ขาดการเชื่อมต่อ';
         }
     }
+
     async function drawRoute(data, cartPosition) {
         if (routeLine) {
             map.removeLayer(routeLine);
