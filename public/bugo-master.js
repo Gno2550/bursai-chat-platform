@@ -349,7 +349,22 @@ document.addEventListener('DOMContentLoaded', () => {
         attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
     }).addTo(map);
 
-    async function drawBusStops() { /* ... ไม่ต้องแก้ไข ... */ }
+    async function drawBusStops() {
+    try {
+        const response = await fetch(API_URL_STOPS); // 1. ดึงข้อมูล
+        const stops = await response.json();         // 2. แปลงเป็น JSON
+
+        stops.forEach(stop => {                      // 3. วนลูปทุกรายการ
+            // 4. เงื่อนไขสำคัญ!
+            if (stop && stop.location && typeof stop.location._latitude === 'number' && typeof stop.location._longitude === 'number') {
+                 // 5. คำสั่งวาด Marker
+                 L.marker([stop.location._latitude, stop.location._longitude], { icon: stopIcon })
+                    .addTo(map)
+                    .bindPopup(`<b>${stop.name}</b>`);
+            }
+        });
+    } catch (err) { console.error("Could not draw bus stops", err); }
+}
 
     async function updateCartOnMap() {
         try {
@@ -442,7 +457,7 @@ document.addEventListener('DOMContentLoaded', () => {
             } catch (err) { console.error("Failed to fetch route:", err); }
         }
     }
-drawBusStops();
+    drawBusStops();
     updateCartOnMap();
     setInterval(updateCartOnMap, UPDATE_INTERVAL);
 });
