@@ -52,9 +52,19 @@ async function updateCartOnMap() {
             cartMarker.setLatLng(cartPosition);
         }
         cartMarker.bindPopup(`<b>Bugo 1</b><br>สถานะ: ${data.status}`).openPopup();
-
-        // อัปเดตแถบสถานะ
-        document.getElementById('cart-status').textContent = data.status;
+      // --- ** ส่วนที่เพิ่มเข้ามา ** ---
+        
+        // แสดงผลระยะทางและเวลา
+        if (data.distanceToNextStop) {
+            document.getElementById('distance').textContent = data.distanceToNextStop.toFixed(0);
+            document.getElementById('eta').textContent = data.etaMinutes.toFixed(0);
+        } else {
+            document.getElementById('distance').textContent = 'N/A';
+            document.getElementById('eta').textContent = 'N/A';
+        }
+      
+      // อัปเดตแถบสถานะ
+        document.getElementById('cart-status').textContent = data.status || 'กำลังคำนวณ...';
         document.getElementById('last-update').textContent = new Date(data.lastUpdate._seconds * 1000).toLocaleTimeString('th-TH');
 
     } catch (error) {
