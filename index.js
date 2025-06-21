@@ -74,6 +74,67 @@ app.post('/api/staff-login', async (req, res) => {
 });
 
 // --- User-Facing API Routes ---
+
+app.get('/api/dashboard/stats', async (req, res) => {
+    try {
+        // ดึงข้อมูลผู้ใช้ทั้งหมด
+        const usersSnapshot = await db.collection('users').get();
+        const totalUsers = usersSnapshot.size;
+
+        // ดึงข้อมูลเช็คอินในวันนี้
+        const today = new Date();
+        today.setHours(0, 0, 0, 0); // ตั้งเวลาเป็นเที่ยงคืน
+        const checkinsSnapshot = await db.collection('checkin_events').where('checkInTime', '>=', today).get();
+        const checkinsToday = checkinsSnapshot.size;
+
+        // ดึงข้อมูลคิวที่ให้บริการและรอ
+        const servingSnapshot = await db.collection('queues').where('status', '==', 'SERVING').get();
+        const waitingSnapshot = await db.collection('queues').where('status', '==', 'WAITING').get();
+        
+        const queueStatus = {
+            serving: servingSnapshot.docs.map(doc => doc.data()),
+            waiting: waitingSnapshot.docs.map(doc => doc.data()),
+        };
+
+        // ดึงข้อมูลผู้ใช้ที่ลงทะเบียน 7 วันล่าสุดสำหรับกราฟ
+        const sevenDaysAgo = new Date();
+        sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+        const recentUsersSnapshot = await db.collection('users').where('registeredAt', '>=', sevenDaysAgo).orderBy('registeredAt').get();
+        
+        // ประมวลผลข้อมูลสำหรับกราฟ
+        const userChartData = {
+            labels: [],
+            data: [],
+        };
+        const counts = {};
+        recentUsersSnapshot.docs.forEach(doc => {
+            const date = new Date(doc.data().registeredAt.seconds * 1000).toLocaleDateString('en-CA'); // YYYY-MM-DD format
+            counts[date] = (counts[date] || 0) + 1;
+        });
+
+        for(let i=6; i>=0; i--) {
+            const d = new Date();
+            d.setDate(d.getDate() - i);
+            const label = d.toLocaleDateString('en-CA');
+            userChartData.labels.push(label);
+            userChartData.data.push(counts[label] || 0);
+        }
+
+        res.json({
+            totalUsers,
+            checkinsToday,
+            queueStatus,
+            userChartData,
+        });
+
+    } catch (error) {
+        console.error("Dashboard Stats API Error:", error);
+        res.status(500).json({ error: 'Failed to fetch dashboard stats' });
+    }
+});
+
+
+
 app.get('/generate-qr', async (req, res) => {
   try {
     const { token } = req.query;

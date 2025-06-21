@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bursai Platform - Dashboard</title>
+    
+    <!-- Leaflet CSS (สำหรับแผนที่) -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    
+    <!-- Dashboard CSS -->
+    <link rel="stylesheet" href="dashboard.css">
+</head>
+<body>
+    <header>
+        <h1>BURSAI PLATFORM DASHBOARD</h1>
+    </header>
+
+    <main class="dashboard-grid">
+        <!-- ส่วนที่ 1: สถานะคิว -->
+        <section class="card" id="queue-status">
+            <h2><span class="live-dot"></span> สถานะคิว Real-time</h2>
+            <div class="queue-container">
+                <div id="serving-queues">
+                    <h3>ห้องที่กำลังให้บริการ</h3>
+                    <div class="serving-list">
+                        <!-- ข้อมูลจะถูกใส่โดย JavaScript -->
+                    </div>
+                </div>
+                <div id="waiting-queues">
+                    <h3>คิวที่กำลังรอ</h3>
+                    <ul class="waiting-list">
+                        <!-- ข้อมูลจะถูกใส่โดย JavaScript -->
+                    </ul>
+                </div>
+            </div>
+        </section>
+
+        <!-- ส่วนที่ 2: แผนที่ติดตามรถ -->
+        <section class="card" id="bugo-tracker">
+            <h2>Bugo Live Tracker</h2>
+            <div id="map"></div>
+            <div id="bugo-status-bar">
+                สถานะรถ: <strong id="cart-status">กำลังโหลด...</strong>
+            </div>
+        </section>
+
+        <!-- ส่วนที่ 3: สถิติผู้ใช้ -->
+        <section class="card" id="user-stats">
+            <h2>สถิติผู้ใช้งาน</h2>
+            <div class="stats-container">
+                <div class="stat-box">
+                    <h4>ผู้ใช้ทั้งหมด</h4>
+                    <p id="total-users-stat">0</p>
+                </div>
+                <div class="stat-box">
+                    <h4>เช็คอินวันนี้</h4>
+                    <p id="checkins-today-stat">0</p>
+                </div>
+            </div>
+            <canvas id="user-chart"></canvas>
+        </section>
+
+        <!-- ส่วนที่ 4: จัดการป้ายรถเมล์ -->
+        <section class="card" id="bus-stop-manager">
+            <h2>จัดการป้ายรถเมล์</h2>
+            <p>คลิกบนแผนที่ติดตามรถด้านบนเพื่อเพิ่มจุดจอดใหม่</p>
+            <div id="bus-stop-list">
+                <!-- รายการป้ายจะถูกใส่โดย JavaScript -->
+            </div>
+        </section>
+    </main>
+
+    <!-- Leaflet JS (ต้องมาก่อน) -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <!-- Leaflet MovingMarker Plugin -->
+    <script src="/moving-marker.js"></script> 
+    <!-- Chart.js สำหรับกราฟ -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    
+    <!-- Dashboard JS -->
+    <script src="dashboard.js"></script>
+</body>
+</html>
