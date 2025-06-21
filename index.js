@@ -20,6 +20,18 @@ const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash-latest" });
 const TOTAL_ROOMS = 5;
 
+// --- **[เพิ่มส่วนนี้]** สร้าง "แผนที่เสียง" (Audio Map) สำหรับเสียงแจ้งเตือนเมื่อถึงป้าย ---
+// **[สำคัญ]** คุณต้องแก้ไขชื่อป้าย (Key) และ URL ของไฟล์ MP3 (Value) ให้ตรงกับข้อมูลของคุณ
+const arrivalAudioMap = {
+    "BUS_STOP1": "https://cdn.glitch.global/4a2b378a-09fc-47bc-b98f-5ba993690b44/1-%E0%B8%96%E0%B8%B6%E0%B8%87%E0%B8%88%E0%B8%B8%E0%B8%94%E0%B8%88%E0%B8%AD%E0%B8%94%E0%B8%A3.mp3?v=1750519742261",
+    "BUS_STOP2": "https://cdn.glitch.global/4a2b378a-09fc-47bc-b98f-5ba993690b44/1-%E0%B8%96%E0%B8%B6%E0%B8%87%E0%B8%88%E0%B8%B8%E0%B8%94%E0%B8%88%E0%B8%AD%E0%B8%94%E0%B8%A3.mp3?v=1750519742261",
+    "BUS_STOP3": "https://cdn.glitch.global/4a2b378a-09fc-47bc-b98f-5ba993690b44/1-%E0%B8%96%E0%B8%B6%E0%B8%87%E0%B8%88%E0%B8%B8%E0%B8%94%E0%B8%88%E0%B8%AD%E0%B8%94%E0%B8%A3.mp3?v=1750519742261",
+    "BUS_STOP4": "https://cdn.glitch.global/4a2b378a-09fc-47bc-b98f-5ba993690b44/1-%E0%B8%96%E0%B8%B6%E0%B8%87%E0%B8%88%E0%B8%B8%E0%B8%94%E0%B8%88%E0%B8%AD%E0%B8%94%E0%B8%A3.mp3?v=1750519742261",
+  // "ชื่อป้ายที่ตรงกับใน Firestore": "URL ของไฟล์เสียงจาก Assets",
+};
+// --- สิ้นสุดส่วนที่ต้องเพิ่ม ---
+
+
 const app = express();
 
 // --- Middleware & Routes ---
@@ -158,6 +170,8 @@ app.delete('/api/delete-bus-stop/:id', async (req, res) => {
         res.status(500).json({ error: 'Failed to delete bus stop' });
     }
 });
+
+// --- **[แก้ไขฟังก์ชันนี้]** ---
 app.post('/api/update-live-location', async (req, res) => {
     try {
         const { latitude, longitude } = req.body;
@@ -188,13 +202,17 @@ app.post('/api/update-live-location', async (req, res) => {
         if (closestStop && minDistance < 20) {
             statusMessage = `ถึงแล้ว: ${closestStop.name}`;
             
+            // เปลี่ยน Logic จากการเรียก API เป็นการค้นหาจาก Audio Map
             if (!previousStatus.includes(closestStop.name)) {
-                // ย้าย Key มาเก็บใน .env เพื่อความปลอดภัย
-                const apiKey = process.env.BOTNOI_API_KEY || "iqLAn3GJUe6DfxCSrwQFtY8WbIcxibzf";
-                const textToSpeak = `ถึงแล้ว, ${closestStop.name}`;
-                const encodedText = encodeURIComponent(textToSpeak);
-                audioNotificationUrl = `https://botnoi-voice.onrender.com/api/v1/tts?text=${encodedText}&speaker=b_male&speed=1&type=wav&auth=${apiKey}`;
-                console.log(`Generated TTS URL with API Key for arrival: ${audioNotificationUrl}`);
+                // ค้นหา URL เสียงจาก "แผนที่เสียง" ที่เราสร้างไว้ข้างบน
+                audioNotificationUrl = arrivalAudioMap[closestStop.name]; 
+                
+                if (audioNotificationUrl) {
+                    console.log(`Found pre-generated audio for ${closestStop.name}: ${audioNotificationUrl}`);
+                } else {
+                    // Log เตือนไว้ ในกรณีที่หาเสียงของป้ายนั้นไม่เจอในแผนที่
+                    console.warn(`Audio URL not found in arrivalAudioMap for stop: ${closestStop.name}`);
+                }
             }
         } else if (closestStop) {
             const AVERAGE_SPEED_KMPH = 15;
