@@ -103,22 +103,21 @@ document.addEventListener('DOMContentLoaded', () => {
             checkinChart.data.labels = stats.checkinChartData.labels;
             checkinChart.data.datasets[0].data = stats.checkinChartData.data;
             checkinChart.update();
-            
-             travelTimesBody.innerHTML = ''; // Clear old data
+            travelTimesBody.innerHTML = ''; // Clear old data
             if (travelTimes && travelTimes.length > 0) {
-                travelTimes.forEach(route => {
-                    const row = `
-                        <tr>
-                            <td>${route.route}</td>
-                            <td>${route.averageTime}</td>
-                            <td>${route.tripCount}</td>
-                        </tr>
-                    `;
-                    travelTimesBody.innerHTML += row;
-                });
-            } else {
-                travelTimesBody.innerHTML = '<tr><td colspan="3">ยังไม่มีข้อมูลการเดินทางที่เสร็จสมบูรณ์</td></tr>';
-            }
+            travelTimes.forEach(route => {
+            const row = `
+            <tr>
+                <td>${route.route}</td>
+                <td>${route.averageTimeMinutes}</td> 
+                <td>${route.tripCount}</td>
+            </tr>
+            `;
+        travelTimesBody.innerHTML += row;
+    });
+} else {
+    travelTimesBody.innerHTML = '<tr><td colspan="3">ยังไม่มีข้อมูลการเดินทางที่เสร็จสมบูรณ์</td></tr>';
+}
             // --- สิ้นสุดการเพิ่ม ---
         } catch (error) {
             console.error("Failed to update dashboard:", error);

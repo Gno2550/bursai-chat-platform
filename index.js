@@ -379,26 +379,33 @@ app.get('/api/dashboard/travel-times', async (req, res) => {
 
         completedLogsSnapshot.docs.forEach(doc => {
             const log = doc.data();
-            const routeKey = `${log.origin} -> ${log.destination}`;
-            if (!travelStats[routeKey]) {
-                travelStats[routeKey] = {
-                    totalDuration: 0,
-                    count: 0
-                };
+            if (log.origin && log.destination && typeof log.durationSeconds === 'number') {
+                const routeKey = `${log.origin} -> ${log.destination}`;
+                if (!travelStats[routeKey]) {
+                    travelStats[routeKey] = {
+                        totalDuration: 0,
+                        count: 0
+                    };
+                }
+                travelStats[routeKey].totalDuration += log.durationSeconds;
+                travelStats[routeKey].count++;
             }
-            travelStats[routeKey].totalDuration += log.durationSeconds;
-            travelStats[routeKey].count++;
         });
 
         const result = Object.entries(travelStats).map(([route, stats]) => {
+            // --- **[แก้ไข]** คำนวณและแปลงเป็นนาที ---
+            const averageSeconds = stats.totalDuration / stats.count;
+            const averageMinutes = (averageSeconds / 60).toFixed(1); // หารด้วย 60 และปัดทศนิยม 1 ตำแหน่ง
+
             return {
                 route: route,
-                averageTime: (stats.totalDuration / stats.count).toFixed(0), // วินาที
+                averageTimeMinutes: averageMinutes, // ส่งกลับเป็นนาที
                 tripCount: stats.count
             }
-        }).sort((a,b) => b.tripCount - a.tripCount); // เรียงตามจำนวนเที่ยว
+        }).sort((a,b) => b.tripCount - a.tripCount);
 
         res.json(result);
+
 
     } catch (error) {
         console.error("Travel Times API Error:", error);
