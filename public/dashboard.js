@@ -10,6 +10,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const checkinsTodayStat = document.getElementById('checkins-today-stat');
     const servingListDiv = document.querySelector('.serving-list');
     const waitingListUl = document.querySelector('.waiting-list');
+    const leaderboardOl = document.querySelector('.leaderboard-list'); 
 
     // --- Chart.js Setup ---
     const regCtx = document.getElementById('registration-chart').getContext('2d');
@@ -57,6 +58,29 @@ document.addEventListener('DOMContentLoaded', () => {
                 waitingListUl.innerHTML = '<li>ไม่มีคิวรอ</li>';
             }
             
+             // --- **[เพิ่มส่วนนี้]** อัปเดต Leaderboard ---
+            leaderboardOl.innerHTML = ''; // Clear old data
+            if (stats.staffLeaderboard && stats.staffLeaderboard.length > 0) {
+                stats.staffLeaderboard.forEach((staff, index) => {
+                    let medal = '';
+                    if (index === 0) medal = '<span class="medal">🥇</span>';
+                    else if (index === 1) medal = '<span class="medal">🥈</span>';
+                    else if (index === 2) medal = '<span class="medal">🥉</span>';
+                    else medal = `<span class="medal" style="font-size:1.1rem; width: 1.5rem; display: inline-block; text-align: center;">${index + 1}</span>`;
+
+                    const listItem = `
+                        <li>
+                            ${medal}
+                            <span class="staff-name">${staff.name}</span>
+                            <span class="checkin-count">${staff.count} คน</span>
+                        </li>
+                    `;
+                    leaderboardOl.innerHTML += listItem;
+                });
+            } else {
+                leaderboardOl.innerHTML = '<li>ยังไม่มีข้อมูลการเช็คอินของ Staff วันนี้</li>';
+            }
+            // --- สิ้นสุดการเพิ่ม ---
             // กราฟลงทะเบียน
             registrationChart.data.labels = stats.registrationChartData.labels;
             registrationChart.data.datasets[0].data = stats.registrationChartData.data;

@@ -110,3 +110,42 @@ header h1 {
     position: relative;
     flex-grow: 1; /* ทำให้ container ขยายเต็มพื้นที่ */
 }
+
+#staff-leaderboard {
+    grid-column: 1 / -1; /* ทำให้การ์ดนี้ยาวเต็มแถว */
+}
+
+.leaderboard-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+.leaderboard-list li {
+    display: flex;
+    align-items: center;
+    padding: 12px 8px;
+    border-bottom: 1px solid #f0f0f0;
+    font-size: 1.1rem;
+}
+
+.leaderboard-list li:last-child {
+    border-bottom: none;
+}
+
+.leaderboard-list .staff-name {
+    flex-grow: 1; /* ดันให้ชื่อไปอยู่ซ้ายสุด */
+}
+
+.leaderboard-list .checkin-count {
+    font-weight: bold;
+    color: #007bff;
+    background-color: #e7f3ff;
+    padding: 4px 10px;
+    border-radius: 12px;
+    font-size: 1rem;
+}
+
+.leaderboard-list .medal {
+    margin-right: 12px;
+    font-size: 1.5rem;
+}
