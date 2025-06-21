@@ -1,4 +1,4 @@
-// driver.js (เวอร์ชันแก้ไขสมบูรณ์และถูกต้องที่สุด)
+// driver.js (เวอร์ชันแก้ไขสมบูรณ์ - ใช้ไฟล์ MP3 ที่สร้างไว้แล้ว)
 document.addEventListener('DOMContentLoaded', () => {
     const statusDiv = document.getElementById('status');
     const startBtn = document.getElementById('start-tracking');
@@ -106,37 +106,21 @@ document.addEventListener('DOMContentLoaded', () => {
         startBtn.disabled = true;
         stopBtn.disabled = false;
         
-        // --- [Logic การเล่นเสียงตอนเริ่มต้น ที่ถูกต้องและสมบูรณ์] ---
+        // --- [แก้ไข] Logic การเล่นเสียงตอนเริ่มต้นจากไฟล์ MP3 ใน Assets ---
         try {
-            const startSound = new Audio();
-            
-            // 1. ตั้งค่า Event Listener: "ถ้าโหลดเสียงนี้พร้อมเล่นเมื่อไหร่ ให้สั่ง play ทันที"
-            // ใช้ { once: true } เพื่อให้ Listener ทำงานแค่ครั้งเดียวแล้วลบตัวเองทิ้งไป
-            startSound.addEventListener('canplaythrough', () => {
-                console.log("Start-up audio is ready to play.");
-                startSound.play().catch(e => console.error("Error playing start audio:", e));
-            }, { once: true });
+            // 1. **[สำคัญ]** ใส่ URL ของไฟล์ MP3 ที่คุณอัปโหลดและคัดลอกมาจากหน้า Assets ของ Glitch ที่นี่
+            const startAudioUrl = "https://cdn.glitch.global/4a2b378a-09fc-47bc-b98f-5ba993690b44/0-%E0%B9%80%E0%B8%A3%E0%B8%B4%E0%B9%88%E0%B8%A1%E0%B8%81%E0%B8%B2%E0%B8%A3%E0%B8%95%E0%B8%B4.mp3?v=1750510858922"; 
 
-            startSound.addEventListener('error', (e) => {
-                console.error("An error occurred with the start-up audio:", e);
-                // อาจจะแสดงข้อความบน UI ด้วยก็ได้
-                // statusDiv.textContent = 'ไม่สามารถเล่นเสียงเริ่มต้นได้';
-            });
+            console.log("Playing pre-generated start-up audio from:", startAudioUrl);
             
-            // 2. สร้าง URL สำหรับเรียก API ของ Botnoi
-            const apiKey = "iqLAn3GJUe6DfxCSrwQFtY8WbIcxibzf";
-            const textToSpeak = "เริ่มการติดตามด้วยระบบบียูโก";
-            const encodedText = encodeURIComponent(textToSpeak);
-            const startAudioUrl = `https://botnoi-voice.onrender.com/api/v1/tts?text=${encodedText}&speaker=b_male&speed=1&type=wav&auth=${apiKey}`;
-            
-            // 3. กำหนด URL ให้กับ Audio object (ขั้นตอนนี้จะเริ่มกระบวนการดาวน์โหลดเสียง)
-            console.log("Requesting start-up audio from Botnoi...");
-            startSound.src = startAudioUrl;
+            // 2. สร้าง Audio object ใหม่ แล้วสั่งเล่นได้เลย
+            const startSound = new Audio(startAudioUrl);
+            startSound.play().catch(e => console.error("Error playing start audio:", e));
 
         } catch (error) {
             console.error("Could not initialize start-up sound:", error);
         }
-        // --- สิ้นสุด Logic การเล่นเสียง ---
+        // --- สิ้นสุดการแก้ไข ---
     });
 
     stopBtn.addEventListener('click', () => {
