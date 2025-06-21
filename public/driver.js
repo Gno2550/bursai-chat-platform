@@ -1,9 +1,13 @@
 // driver.js (Automatic GPS Tracking - FINAL VERSION)
+// driver.js (Automatic GPS Tracking - with Audio Notification)
 document.addEventListener('DOMContentLoaded', () => {
     const statusDiv = document.getElementById('status');
     const startBtn = document.getElementById('start-tracking');
     const stopBtn = document.getElementById('stop-tracking');
-    let watchId = null; 
+    let watchId = null;
+
+    // **[เพิ่ม]** สร้าง Audio object ไว้ใช้ซ้ำ
+    const notificationSound = new Audio();
 
     const API_URL = '/api/update-live-location';
 

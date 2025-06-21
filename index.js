@@ -162,9 +162,15 @@ app.post('/api/update-live-location', async (req, res) => {
     try {
         const { latitude, longitude } = req.body;
         if (!latitude || !longitude) { return res.status(400).json({ success: false, message: 'Invalid location data' }); }
+        
         const cartRef = db.collection('golf_carts').doc('cart_01');
+        const cartDoc = await cartRef.get();
+        const currentCartData = cartDoc.exists ? cartDoc.data() : {};
+        const previousStatus = currentCartData.status || '';
+
         const stopsSnapshot = await db.collection('bus_stops').orderBy('name').get();
         const stops = stopsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        
         let closestStop = null;
         let minDistance = Infinity;
         if (stops.length > 0) {
@@ -173,20 +179,32 @@ app.post('/api/update-live-location', async (req, res) => {
                 if (distance < minDistance) { minDistance = distance; closestStop = stop; }
             });
         }
+        
         let statusMessage = "ระหว่างทาง";
         let etaMinutes = 0;
-        let nextStopLocation = null; // <-- **[แก้ไข]** สร้างตัวแปรเก็บตำแหน่งป้ายถัดไป
-        
-        if (closestStop && minDistance < 20) {
+        let nextStopLocation = null;
+        let audioNotificationUrl = null; // **[เพิ่ม]** ตัวแปรสำหรับเก็บ URL เสียง
+
+        if (closestStop && minDistance < 20) { // ระยะที่ถือว่า "ถึงแล้ว" (20 เมตร)
             statusMessage = `ถึงแล้ว: ${closestStop.name}`;
-            etaMinutes = 0;
-            nextStopLocation = null; // ถึงแล้ว ไม่มีป้ายถัดไป
+            
+            // --- **[เพิ่ม Logic สำคัญ]** ตรวจสอบว่า "เพิ่งมาถึง" หรือไม่ ---
+            if (!previousStatus.includes(closestStop.name)) {
+                // ถ้าสถานะก่อนหน้า ไม่ใช่การ "ถึงแล้ว" ที่ป้ายเดิม แสดงว่าเพิ่งมาถึง
+                const textToSpeak = `ถึงแล้ว, ${closestStop.name}`;
+                const encodedText = encodeURIComponent(textToSpeak);
+                // สร้าง URL สำหรับ Botnoi TTS API
+                audioNotificationUrl = `https://botnoi-voice.onrender.com/api/v1/tts?text=${encodedText}&speaker=b_male&speed=1&type=wav`;
+                console.log(`Generated TTS URL for arrival: ${audioNotificationUrl}`);
+            }
+            // --- สิ้นสุด Logic ---
+
         } else if (closestStop) {
             const AVERAGE_SPEED_KMPH = 15;
             const speedMps = (AVERAGE_SPEED_KMPH * 1000) / 3600;
             etaMinutes = (minDistance / speedMps) / 60;
             statusMessage = `กำลังมุ่งหน้าไป ${closestStop.name}`;
-            nextStopLocation = closestStop.location; // <-- **[แก้ไข]** กำหนดค่าตำแหน่งป้ายถัดไป
+            nextStopLocation = closestStop.location;
         }
         
         await cartRef.set({ 
@@ -195,10 +213,16 @@ app.post('/api/update-live-location', async (req, res) => {
             distanceToNextStop: minDistance, 
             etaMinutes: etaMinutes, 
             lastUpdate: new Date(),
-            nextStopLocation: nextStopLocation // <-- **[แก้ไข]** บันทึกตำแหน่งลง Firestore
+            nextStopLocation: nextStopLocation
         }, { merge: true });
         
-        res.json({ success: true, message: 'Location updated' });
+        // **[แก้ไข]** ส่ง URL เสียงกลับไปให้ Driver ด้วย
+        res.json({ 
+            success: true, 
+            message: 'Location updated',
+            audioUrl: audioNotificationUrl // ถ้าไม่มี URL นี้จะเป็น null
+        });
+
     } catch (error) {
         console.error("Update Live Location Error:", error);
         res.status(500).json({ success: false, message: 'Server error' });
