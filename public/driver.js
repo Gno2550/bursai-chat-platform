@@ -109,7 +109,7 @@ document.addEventListener('DOMContentLoaded', () => {
         // --- [แก้ไข] Logic การเล่นเสียงตอนเริ่มต้นจากไฟล์ MP3 ใน Assets ---
         try {
             // 1. **[สำคัญ]** ใส่ URL ของไฟล์ MP3 ที่คุณอัปโหลดและคัดลอกมาจากหน้า Assets ของ Glitch ที่นี่
-            const startAudioUrl = "https://cdn.glitch.global/4a2b378a-09fc-47bc-b98f-5ba993690b44/0-%E0%B9%80%E0%B8%A3%E0%B8%B4%E0%B9%88%E0%B8%A1%E0%B8%81%E0%B8%B2%E0%B8%A3%E0%B8%95%E0%B8%B4.mp3?v=1750519739275"; 
+            const startAudioUrl = "https://cdn.glitch.global/4a2b378a-09fc-47bc-b98f-5ba993690b44/0-%E0%B9%80%E0%B8%A3%E0%B8%B4%E0%B9%88%E0%B8%A1%E0%B8%81%E0%B8%B2%E0%B8%A3%E0%B8%95%E0%B8%B4.mp3?v=1750521728365"; 
 
             console.log("Playing pre-generated start-up audio from:", startAudioUrl);
             

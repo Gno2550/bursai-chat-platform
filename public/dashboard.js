@@ -1,60 +1,44 @@
-// dashboard.js
+// dashboard.js (เวอร์ชันปรับปรุง)
 document.addEventListener('DOMContentLoaded', () => {
     // --- URLs & Intervals ---
     const STATS_API_URL = '/api/dashboard/stats';
-    const BUGO_API_URL = '/api/bugo-status';
-    const STOPS_API_URL = '/api/bus-stops';
-    const UPDATE_INTERVAL = 10000; // 10 วินาที
+    const UPDATE_INTERVAL = 30000; // 30 วินาที
 
     // --- DOM Elements ---
     const totalUsersStat = document.getElementById('total-users-stat');
+    const registrationsTodayStat = document.getElementById('registrations-today-stat');
     const checkinsTodayStat = document.getElementById('checkins-today-stat');
     const servingListDiv = document.querySelector('.serving-list');
     const waitingListUl = document.querySelector('.waiting-list');
-    const busStopListDiv = document.getElementById('bus-stop-list');
-    const cartStatusSpan = document.getElementById('cart-status');
 
     // --- Chart.js Setup ---
-    const ctx = document.getElementById('user-chart').getContext('2d');
-    let userChart = new Chart(ctx, {
+    const regCtx = document.getElementById('registration-chart').getContext('2d');
+    let registrationChart = new Chart(regCtx, {
         type: 'line',
-        data: { labels: [], datasets: [{ label: 'ผู้ลงทะเบียนใหม่', data: [], borderWidth: 2, tension: 0.2 }] },
+        data: { labels: [], datasets: [{ label: 'ผู้ลงทะเบียนใหม่', data: [], borderColor: 'rgb(75, 192, 192)', borderWidth: 2, tension: 0.2, fill: true }] },
         options: { responsive: true, maintainAspectRatio: false }
     });
     
-    // --- Leaflet Map Setup ---
-    let map;
-    let cartMarker = null;
-    const busStopIcon = L.icon({ iconUrl: 'https://cdn.glitch.global/4a2b378a-09fc-47bc-b98f-5ba993690b44/icons8-bus-stop-96.png?v=1750447498203', iconSize: [35, 35] });
-    const cartIcon = L.icon({ iconUrl: 'https://cdn.glitch.global/4a2b378a-09fc-47bc-b98f-5ba993690b44/icons8-golf-cart-80.png?v=1750438227729', iconSize: [45, 45] });
+    const checkinCtx = document.getElementById('checkin-chart').getContext('2d');
+    let checkinChart = new Chart(checkinCtx, {
+        type: 'bar',
+        data: { labels: [], datasets: [{ label: 'จำนวนเช็คอิน', data: [], backgroundColor: 'rgba(54, 162, 235, 0.6)', borderColor: 'rgb(54, 162, 235)', borderWidth: 1 }] },
+        options: { responsive: true, maintainAspectRatio: false, scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } } }
+    });
 
-    function initMap() {
-        map = L.map('map').setView([13.9615, 100.6230], 18);
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
-        
-        // ทำให้ Admin สามารถเพิ่มจุดจอดได้จากหน้านี้
-        map.on('click', (e) => {
-            const stopName = prompt("กรุณาใส่ชื่อจุดจอดใหม่:");
-            if (stopName) {
-                addBusStop(stopName, e.latlng.lat, e.latlng.lng);
-            }
-        });
-    }
-
-    // --- Data Fetching & Rendering Functions ---
-
-    // 1. อัปเดตสถิติและคิวทั้งหมด
-    async function updateDashboardStats() {
+    // --- Data Fetching & Rendering Function ---
+    async function updateDashboard() {
         try {
             const response = await fetch(STATS_API_URL);
             const stats = await response.json();
 
             // สถิติหลัก
             totalUsersStat.textContent = stats.totalUsers;
+            registrationsTodayStat.textContent = stats.registrationsToday;
             checkinsTodayStat.textContent = stats.checkinsToday;
 
             // สถานะคิว - กำลังให้บริการ
-            servingListDiv.innerHTML = ''; // Clear old data
+            servingListDiv.innerHTML = ''; 
             if (stats.queueStatus.serving.length > 0) {
                 stats.queueStatus.serving.forEach(q => {
                     servingListDiv.innerHTML += `<div><strong>ห้อง ${q.roomNumber}:</strong> ${q.displayName}</div>`;
@@ -64,7 +48,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             // สถานะคิว - กำลังรอ
-            waitingListUl.innerHTML = ''; // Clear old data
+            waitingListUl.innerHTML = '';
             if (stats.queueStatus.waiting.length > 0) {
                  stats.queueStatus.waiting.forEach(q => {
                     waitingListUl.innerHTML += `<li><strong>คิวที่ ${q.queueNumber}:</strong> ${q.displayName}</li>`;
@@ -73,75 +57,22 @@ document.addEventListener('DOMContentLoaded', () => {
                 waitingListUl.innerHTML = '<li>ไม่มีคิวรอ</li>';
             }
             
-            // กราฟ
-            userChart.data.labels = stats.userChartData.labels;
-            userChart.data.datasets[0].data = stats.userChartData.data;
-            userChart.update();
-
-        } catch (error) {
-            console.error("Failed to update dashboard stats:", error);
-        }
-    }
-
-    // 2. อัปเดตแผนที่และรายการป้ายรถ
-    async function updateMapAndStops() {
-        // อัปเดตรถ
-        try {
-            const response = await fetch(BUGO_API_URL);
-            const data = await response.json();
-            const cartPosition = [data.location._latitude, data.location._longitude];
+            // กราฟลงทะเบียน
+            registrationChart.data.labels = stats.registrationChartData.labels;
+            registrationChart.data.datasets[0].data = stats.registrationChartData.data;
+            registrationChart.update();
             
-            if (!cartMarker) {
-                cartMarker = L.Marker.movingMarker([cartPosition, cartPosition], [], { autostart: true, icon: cartIcon }).addTo(map);
-            } else {
-                cartMarker.moveTo(cartPosition, 4500);
-            }
-            cartStatusSpan.textContent = data.status;
-        } catch (error) {
-            console.error("Failed to update cart position:", error);
-            cartStatusSpan.textContent = "ขาดการเชื่อมต่อ";
-        }
-        
-        // อัปเดตป้ายรถและรายการ
-        try {
-            const response = await fetch(STOPS_API_URL);
-            const stops = await response.json();
-            busStopListDiv.innerHTML = '<h4>รายการป้ายทั้งหมด</h4>';
-            stops.forEach(stop => {
-                L.marker([stop.location._latitude, stop.location._longitude], { icon: busStopIcon }).addTo(map);
-                busStopListDiv.innerHTML += `<div class="bus-stop-item"><span>${stop.name}</span><button onclick="deleteBusStop('${stop.id}')">ลบ</button></div>`;
-            });
-        } catch (error) {
-             console.error("Failed to update bus stops:", error);
-        }
-    }
+            // กราฟเช็คอิน
+            checkinChart.data.labels = stats.checkinChartData.labels;
+            checkinChart.data.datasets[0].data = stats.checkinChartData.data;
+            checkinChart.update();
 
-    // --- Helper Functions for Bus Stop Management ---
-    async function addBusStop(name, lat, lng) {
-        await fetch('/api/add-bus-stop', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ name, latitude: lat, longitude: lng })
-        });
-        alert("เพิ่มจุดจอดสำเร็จ!");
-        updateMapAndStops(); // Refresh map
-    }
-    
-    window.deleteBusStop = async (id) => {
-        if (confirm("คุณแน่ใจหรือไม่ว่าจะลบจุดจอดนี้?")) {
-            await fetch(`/api/delete-bus-stop/${id}`, { method: 'DELETE' });
-            alert("ลบจุดจอดสำเร็จ!");
-            window.location.reload(); // ง่ายที่สุดคือโหลดหน้าใหม่เลย
+        } catch (error) {
+            console.error("Failed to update dashboard:", error);
         }
     }
-
 
     // --- Initial Load & Interval ---
-    initMap();
-    updateDashboardStats();
-    updateMapAndStops();
-    setInterval(() => {
-        updateDashboardStats();
-        updateMapAndStops();
-    }, UPDATE_INTERVAL);
+    updateDashboard();
+    setInterval(updateDashboard, UPDATE_INTERVAL);
 });

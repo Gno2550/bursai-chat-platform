@@ -77,54 +77,73 @@ app.post('/api/staff-login', async (req, res) => {
 
 app.get('/api/dashboard/stats', async (req, res) => {
     try {
-        // ดึงข้อมูลผู้ใช้ทั้งหมด
-        const usersSnapshot = await db.collection('users').get();
-        const totalUsers = usersSnapshot.size;
-
-        // ดึงข้อมูลเช็คอินในวันนี้
         const today = new Date();
-        today.setHours(0, 0, 0, 0); // ตั้งเวลาเป็นเที่ยงคืน
-        const checkinsSnapshot = await db.collection('checkin_events').where('checkInTime', '>=', today).get();
-        const checkinsToday = checkinsSnapshot.size;
+        today.setHours(0, 0, 0, 0);
 
-        // ดึงข้อมูลคิวที่ให้บริการและรอ
-        const servingSnapshot = await db.collection('queues').where('status', '==', 'SERVING').get();
-        const waitingSnapshot = await db.collection('queues').where('status', '==', 'WAITING').get();
+        const sevenDaysAgo = new Date();
+        sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+
+        // --- ดึงข้อมูลพร้อมกันเพื่อความเร็ว ---
+        const [
+            usersSnapshot,
+            registrationsTodaySnapshot,
+            checkinsSnapshot,
+            servingSnapshot,
+            waitingSnapshot,
+            recentUsersSnapshot
+        ] = await Promise.all([
+            db.collection('users').get(),
+            db.collection('users').where('registeredAt', '>=', today).get(),
+            db.collection('checkin_events').where('checkInTime', '>=', today).get(),
+            db.collection('queues').where('status', '==', 'SERVING').get(),
+            db.collection('queues').where('status', '==', 'WAITING').get(),
+            db.collection('users').where('registeredAt', '>=', sevenDaysAgo).orderBy('registeredAt').get()
+        ]);
+        
+        // --- ประมวลผลข้อมูล ---
+        const totalUsers = usersSnapshot.size;
+        const registrationsToday = registrationsTodaySnapshot.size;
+        const checkinsToday = checkinsSnapshot.size;
         
         const queueStatus = {
             serving: servingSnapshot.docs.map(doc => doc.data()),
             waiting: waitingSnapshot.docs.map(doc => doc.data()),
         };
 
-        // ดึงข้อมูลผู้ใช้ที่ลงทะเบียน 7 วันล่าสุดสำหรับกราฟ
-        const sevenDaysAgo = new Date();
-        sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-        const recentUsersSnapshot = await db.collection('users').where('registeredAt', '>=', sevenDaysAgo).orderBy('registeredAt').get();
-        
-        // ประมวลผลข้อมูลสำหรับกราฟ
-        const userChartData = {
-            labels: [],
-            data: [],
-        };
-        const counts = {};
+        // กราฟลงทะเบียน (รายวัน)
+        const registrationChartData = { labels: [], data: [] };
+        const regCounts = {};
         recentUsersSnapshot.docs.forEach(doc => {
-            const date = new Date(doc.data().registeredAt.seconds * 1000).toLocaleDateString('en-CA'); // YYYY-MM-DD format
-            counts[date] = (counts[date] || 0) + 1;
+            const date = new Date(doc.data().registeredAt.seconds * 1000).toLocaleDateString('en-CA');
+            regCounts[date] = (regCounts[date] || 0) + 1;
         });
-
         for(let i=6; i>=0; i--) {
             const d = new Date();
             d.setDate(d.getDate() - i);
             const label = d.toLocaleDateString('en-CA');
-            userChartData.labels.push(label);
-            userChartData.data.push(counts[label] || 0);
+            registrationChartData.labels.push(label);
+            registrationChartData.data.push(regCounts[label] || 0);
         }
 
+        // กราฟเช็คอิน (รายชั่วโมง)
+        const checkinChartData = { labels: [], data: [] };
+        const checkinCounts = Array(24).fill(0); // สร้าง array 24 ช่องสำหรับแต่ละชั่วโมง
+        checkinsSnapshot.docs.forEach(doc => {
+            const hour = new Date(doc.data().checkInTime.seconds * 1000).getHours();
+            checkinCounts[hour]++;
+        });
+        for (let i = 0; i < 24; i++) {
+            checkinChartData.labels.push(`${i}:00`);
+            checkinChartData.data.push(checkinCounts[i]);
+        }
+        
         res.json({
             totalUsers,
+            registrationsToday,
             checkinsToday,
             queueStatus,
-            userChartData,
+            registrationChartData,
+            checkinChartData,
         });
 
     } catch (error) {

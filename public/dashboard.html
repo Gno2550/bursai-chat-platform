@@ -4,11 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Bursai Platform - Dashboard</title>
-    
-    <!-- Leaflet CSS (สำหรับแผนที่) -->
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-    
-    <!-- Dashboard CSS -->
     <link rel="stylesheet" href="dashboard.css">
 </head>
 <body>
@@ -36,48 +31,44 @@
             </div>
         </section>
 
-        <!-- ส่วนที่ 2: แผนที่ติดตามรถ -->
-        <section class="card" id="bugo-tracker">
-            <h2>Bugo Live Tracker</h2>
-            <div id="map"></div>
-            <div id="bugo-status-bar">
-                สถานะรถ: <strong id="cart-status">กำลังโหลด...</strong>
-            </div>
-        </section>
-
-        <!-- ส่วนที่ 3: สถิติผู้ใช้ -->
-        <section class="card" id="user-stats">
-            <h2>สถิติผู้ใช้งาน</h2>
+        <!-- ส่วนที่ 2: สถิติภาพรวม -->
+        <section class="card" id="overall-stats">
+            <h2>ภาพรวมวันนี้</h2>
             <div class="stats-container">
                 <div class="stat-box">
                     <h4>ผู้ใช้ทั้งหมด</h4>
                     <p id="total-users-stat">0</p>
                 </div>
                 <div class="stat-box">
+                    <h4>ลงทะเบียนวันนี้</h4>
+                    <p id="registrations-today-stat">0</p>
+                </div>
+                <div class="stat-box">
                     <h4>เช็คอินวันนี้</h4>
                     <p id="checkins-today-stat">0</p>
                 </div>
             </div>
-            <canvas id="user-chart"></canvas>
         </section>
-
-        <!-- ส่วนที่ 4: จัดการป้ายรถเมล์ -->
-        <section class="card" id="bus-stop-manager">
-            <h2>จัดการป้ายรถเมล์</h2>
-            <p>คลิกบนแผนที่ติดตามรถด้านบนเพื่อเพิ่มจุดจอดใหม่</p>
-            <div id="bus-stop-list">
-                <!-- รายการป้ายจะถูกใส่โดย JavaScript -->
+        
+        <!-- ส่วนที่ 3: กราฟการลงทะเบียน -->
+        <section class="card" id="registration-chart-card">
+            <h2>กราฟการลงทะเบียนใหม่ (7 วันย้อนหลัง)</h2>
+            <div class="chart-container">
+                <canvas id="registration-chart"></canvas>
+            </div>
+        </section>
+        
+        <!-- ส่วนที่ 4: กราฟการเช็คอิน -->
+        <section class="card" id="checkin-chart-card">
+            <h2>กราฟการเช็คอินรายชั่วโมง (วันนี้)</h2>
+            <div class="chart-container">
+                <canvas id="checkin-chart"></canvas>
             </div>
         </section>
     </main>
-
-    <!-- Leaflet JS (ต้องมาก่อน) -->
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <!-- Leaflet MovingMarker Plugin -->
-    <script src="/moving-marker.js"></script> 
+    
     <!-- Chart.js สำหรับกราฟ -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    
     <!-- Dashboard JS -->
     <script src="dashboard.js"></script>
 </body>

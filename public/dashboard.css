@@ -1,4 +1,4 @@
-/* dashboard.css */
+/* dashboard.css (เวอร์ชันปรับปรุง) */
 body {
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
     margin: 0;
@@ -19,12 +19,15 @@ header h1 {
     color: #1a2a4d;
 }
 
+/* แก้ไข Grid ให้เป็น 2 คอลัมน์ */
 .dashboard-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
-    grid-auto-rows: minmax(350px, auto);
+    grid-template-columns: 1fr 1fr; /* 2 คอลัมน์เท่ากัน */
+    grid-auto-rows: minmax(300px, auto);
     gap: 20px;
     padding: 20px;
+    max-width: 1400px;
+    margin: 0 auto;
 }
 
 .card {
@@ -46,22 +49,9 @@ header h1 {
     align-items: center;
 }
 
-/* ทำให้การ์ดแผนที่ใหญ่เป็นพิเศษ */
-#bugo-tracker {
-    grid-column: span 2; /* ใช้ 2 คอลัมน์ */
-    grid-row: span 2;    /* ใช้ 2 แถว */
-}
-
-#map {
-    width: 100%;
-    height: 85%;
-    border-radius: 6px;
-    flex-grow: 1; /* ทำให้แผนที่ขยายเต็มพื้นที่ที่เหลือ */
-}
-
-#bugo-status-bar {
-    padding-top: 10px;
-    text-align: center;
+/* จัดให้การ์ดคิวยาวเต็มแถว */
+#queue-status {
+    grid-column: 1 / -1; /* ใช้พื้นที่เต็มความกว้าง */
 }
 
 /* สถานะคิว */
@@ -88,6 +78,7 @@ header h1 {
 .serving-list, .waiting-list {
     list-style: none;
     padding: 0;
+    width: 50%;
 }
 .serving-list div, .waiting-list li {
     background-color: #f8f9fa;
@@ -101,31 +92,21 @@ header h1 {
     display: flex;
     justify-content: space-around;
     text-align: center;
-    margin-bottom: 20px;
 }
+.stat-box { flex: 1; }
 .stat-box p {
     font-size: 2rem;
     font-weight: bold;
     margin: 5px 0 0 0;
     color: #007bff;
 }
+.stat-box h4 {
+    margin-bottom: 5px;
+    color: #6c757d;
+}
 
-/* จัดการป้ายรถ */
-#bus-stop-list {
-    overflow-y: auto;
-}
-.bus-stop-item {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 8px;
-    border-bottom: 1px solid #eee;
-}
-.bus-stop-item button {
-    background-color: #dc3545;
-    color: white;
-    border: none;
-    padding: 5px 10px;
-    border-radius: 4px;
-    cursor: pointer;
+/* กราฟ */
+.chart-container {
+    position: relative;
+    flex-grow: 1; /* ทำให้ container ขยายเต็มพื้นที่ */
 }
