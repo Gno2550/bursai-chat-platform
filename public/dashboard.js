@@ -1,16 +1,20 @@
-// dashboard.js (เวอร์ชันปรับปรุง)
+// dashboard.js (เวอร์ชันสมบูรณ์)
 document.addEventListener('DOMContentLoaded', () => {
     // --- URLs & Intervals ---
     const STATS_API_URL = '/api/dashboard/stats';
     const UPDATE_INTERVAL = 30000; // 30 วินาที
 
     // --- DOM Elements ---
+    const summaryTopStaff = document.getElementById('summary-top-staff');
+    const summaryTopStaffCount = document.getElementById('summary-top-staff-count');
+    const summaryAvgWait = document.getElementById('summary-avg-wait');
+    const summaryFinishedQueues = document.getElementById('summary-finished-queues');
     const totalUsersStat = document.getElementById('total-users-stat');
     const registrationsTodayStat = document.getElementById('registrations-today-stat');
     const checkinsTodayStat = document.getElementById('checkins-today-stat');
     const servingListDiv = document.querySelector('.serving-list');
     const waitingListUl = document.querySelector('.waiting-list');
-    const leaderboardOl = document.querySelector('.leaderboard-list'); 
+    const leaderboardOl = document.querySelector('.leaderboard-list');
 
     // --- Chart.js Setup ---
     const regCtx = document.getElementById('registration-chart').getContext('2d');
@@ -33,12 +37,26 @@ document.addEventListener('DOMContentLoaded', () => {
             const response = await fetch(STATS_API_URL);
             const stats = await response.json();
 
+            // ส่วนสรุปข้อมูล
+            const summary = stats.summaryData;
+            if (summary) {
+                if (summary.topPerformingStaff) {
+                    summaryTopStaff.textContent = summary.topPerformingStaff.name;
+                    summaryTopStaffCount.textContent = `${summary.topPerformingStaff.count} Check-ins`;
+                } else {
+                    summaryTopStaff.textContent = '-';
+                    summaryTopStaffCount.textContent = 'ไม่มีข้อมูล';
+                }
+                summaryAvgWait.textContent = summary.averageWaitTime;
+                summaryFinishedQueues.textContent = summary.totalFinishedToday;
+            }
+            
             // สถิติหลัก
             totalUsersStat.textContent = stats.totalUsers;
             registrationsTodayStat.textContent = stats.registrationsToday;
             checkinsTodayStat.textContent = stats.checkinsToday;
 
-            // สถานะคิว - กำลังให้บริการ
+            // สถานะคิว
             servingListDiv.innerHTML = ''; 
             if (stats.queueStatus.serving.length > 0) {
                 stats.queueStatus.serving.forEach(q => {
@@ -47,8 +65,6 @@ document.addEventListener('DOMContentLoaded', () => {
             } else {
                 servingListDiv.innerHTML = '<p>ไม่มีห้องที่ให้บริการ</p>';
             }
-
-            // สถานะคิว - กำลังรอ
             waitingListUl.innerHTML = '';
             if (stats.queueStatus.waiting.length > 0) {
                  stats.queueStatus.waiting.forEach(q => {
@@ -58,8 +74,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 waitingListUl.innerHTML = '<li>ไม่มีคิวรอ</li>';
             }
             
-             // --- **[เพิ่มส่วนนี้]** อัปเดต Leaderboard ---
-            leaderboardOl.innerHTML = ''; // Clear old data
+            // Leaderboard
+            leaderboardOl.innerHTML = '';
             if (stats.staffLeaderboard && stats.staffLeaderboard.length > 0) {
                 stats.staffLeaderboard.forEach((staff, index) => {
                     let medal = '';
@@ -67,26 +83,17 @@ document.addEventListener('DOMContentLoaded', () => {
                     else if (index === 1) medal = '<span class="medal">🥈</span>';
                     else if (index === 2) medal = '<span class="medal">🥉</span>';
                     else medal = `<span class="medal" style="font-size:1.1rem; width: 1.5rem; display: inline-block; text-align: center;">${index + 1}</span>`;
-
-                    const listItem = `
-                        <li>
-                            ${medal}
-                            <span class="staff-name">${staff.name}</span>
-                            <span class="checkin-count">${staff.count} คน</span>
-                        </li>
-                    `;
-                    leaderboardOl.innerHTML += listItem;
+                    leaderboardOl.innerHTML += `<li>${medal}<span class="staff-name">${staff.name}</span><span class="checkin-count">${staff.count} คน</span></li>`;
                 });
             } else {
                 leaderboardOl.innerHTML = '<li>ยังไม่มีข้อมูลการเช็คอินของ Staff วันนี้</li>';
             }
-            // --- สิ้นสุดการเพิ่ม ---
-            // กราฟลงทะเบียน
+            
+            // กราฟ
             registrationChart.data.labels = stats.registrationChartData.labels;
             registrationChart.data.datasets[0].data = stats.registrationChartData.data;
             registrationChart.update();
             
-            // กราฟเช็คอิน
             checkinChart.data.labels = stats.checkinChartData.labels;
             checkinChart.data.datasets[0].data = stats.checkinChartData.data;
             checkinChart.update();

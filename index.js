@@ -20,16 +20,17 @@ const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash-latest" });
 const TOTAL_ROOMS = 5;
 
-// --- **[เพิ่มส่วนนี้]** สร้าง "แผนที่เสียง" (Audio Map) สำหรับเสียงแจ้งเตือนเมื่อถึงป้าย ---
+// --- "แผนที่เสียง" (Audio Map) สำหรับเสียงแจ้งเตือนเมื่อถึงป้าย ---
 // **[สำคัญ]** คุณต้องแก้ไขชื่อป้าย (Key) และ URL ของไฟล์ MP3 (Value) ให้ตรงกับข้อมูลของคุณ
 const arrivalAudioMap = {
     "BUS_STOP1": "https://cdn.glitch.global/4a2b378a-09fc-47bc-b98f-5ba993690b44/1-%E0%B8%96%E0%B8%B6%E0%B8%87%E0%B8%88%E0%B8%B8%E0%B8%94%E0%B8%88%E0%B8%AD%E0%B8%94%E0%B8%A3.mp3?v=1750519742261",
     "BUS_STOP2": "https://cdn.glitch.global/4a2b378a-09fc-47bc-b98f-5ba993690b44/1-%E0%B8%96%E0%B8%B6%E0%B8%87%E0%B8%88%E0%B8%B8%E0%B8%94%E0%B8%88%E0%B8%AD%E0%B8%94%E0%B8%A3.mp3?v=1750519742261",
     "BUS_STOP3": "https://cdn.glitch.global/4a2b378a-09fc-47bc-b98f-5ba993690b44/1-%E0%B8%96%E0%B8%B6%E0%B8%87%E0%B8%88%E0%B8%B8%E0%B8%94%E0%B8%88%E0%B8%AD%E0%B8%94%E0%B8%A3.mp3?v=1750519742261",
     "BUS_STOP4": "https://cdn.glitch.global/4a2b378a-09fc-47bc-b98f-5ba993690b44/1-%E0%B8%96%E0%B8%B6%E0%B8%87%E0%B8%88%E0%B8%B8%E0%B8%94%E0%B8%88%E0%B8%AD%E0%B8%94%E0%B8%A3.mp3?v=1750519742261",
-  // "ชื่อป้ายที่ตรงกับใน Firestore": "URL ของไฟล์เสียงจาก Assets",
+
+    // ตัวอย่างการเพิ่มป้ายต่อไป:
+    // "ชื่อป้ายที่ตรงกับใน Firestore": "URL ของไฟล์เสียงจาก Assets",
 };
-// --- สิ้นสุดส่วนที่ต้องเพิ่ม ---
 
 
 const app = express();
@@ -74,102 +75,6 @@ app.post('/api/staff-login', async (req, res) => {
 });
 
 // --- User-Facing API Routes ---
-
-// ในไฟล์ index.js, วางทับ app.get('/api/dashboard/stats', ...) เดิมทั้งหมด
-
-app.get('/api/dashboard/stats', async (req, res) => {
-    try {
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-
-        const sevenDaysAgo = new Date();
-        sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-
-        // --- ดึงข้อมูลพร้อมกันเพื่อความเร็ว ---
-        const [
-            usersSnapshot,
-            registrationsTodaySnapshot,
-            checkinsSnapshot,
-            servingSnapshot,
-            waitingSnapshot,
-            recentUsersSnapshot
-        ] = await Promise.all([
-            db.collection('users').get(),
-            db.collection('users').where('registeredAt', '>=', today).get(),
-            db.collection('checkin_events').where('checkInTime', '>=', today).get(),
-            db.collection('queues').where('status', '==', 'SERVING').get(),
-            db.collection('queues').where('status', '==', 'WAITING').get(),
-            db.collection('users').where('registeredAt', '>=', sevenDaysAgo).orderBy('registeredAt').get()
-        ]);
-        
-        // --- ประมวลผลข้อมูล ---
-        const totalUsers = usersSnapshot.size;
-        const registrationsToday = registrationsTodaySnapshot.size;
-        const checkinsToday = checkinsSnapshot.size;
-        
-        const queueStatus = {
-            serving: servingSnapshot.docs.map(doc => doc.data()),
-            waiting: waitingSnapshot.docs.map(doc => doc.data()),
-        };
-
-        // **[โค้ดที่ขาดหายไป]** กราฟลงทะเบียน (รายวัน)
-        const registrationChartData = { labels: [], data: [] };
-        const regCounts = {};
-        recentUsersSnapshot.docs.forEach(doc => {
-            const date = new Date(doc.data().registeredAt.seconds * 1000).toLocaleDateString('en-CA'); // YYYY-MM-DD format
-            regCounts[date] = (regCounts[date] || 0) + 1;
-        });
-        for(let i=6; i>=0; i--) {
-            const d = new Date();
-            d.setDate(d.getDate() - i);
-            const label = d.toLocaleDateString('en-CA');
-            registrationChartData.labels.push(label);
-            registrationChartData.data.push(regCounts[label] || 0);
-        }
-
-        // **[โค้ดที่ขาดหายไป]** กราฟเช็คอิน (รายชั่วโมง)
-        const checkinChartData = { labels: [], data: [] };
-        const checkinCounts = Array(24).fill(0); // สร้าง array 24 ช่องสำหรับแต่ละชั่วโมง
-        checkinsSnapshot.docs.forEach(doc => {
-            const hour = new Date(doc.data().checkInTime.seconds * 1000).getHours();
-            checkinCounts[hour]++;
-        });
-        for (let i = 0; i < 24; i++) {
-            checkinChartData.labels.push(`${i}:00`);
-            checkinChartData.data.push(checkinCounts[i]);
-        }
-        
-        // ประมวลผลสถิติ Staff Leaderboard
-        const staffCheckinCounts = {};
-        checkinsSnapshot.docs.forEach(doc => {
-            const staffName = doc.data().scannedBy;
-            if (staffName) {
-                staffCheckinCounts[staffName] = (staffCheckinCounts[staffName] || 0) + 1;
-            }
-        });
-        const staffLeaderboard = Object.entries(staffCheckinCounts)
-            .map(([name, count]) => ({ name, count }))
-            .sort((a, b) => b.count - a.count);
-
-        // ส่งข้อมูลทั้งหมดกลับไป
-        res.json({
-            totalUsers,
-            registrationsToday,
-            checkinsToday,
-            queueStatus,
-            registrationChartData,
-            checkinChartData,
-            staffLeaderboard 
-        });
-
-    } catch (error) {
-        console.error("Dashboard Stats API Error:", error);
-        res.status(500).json({ error: 'Failed to fetch dashboard stats' });
-    }
-});
-
-
-
 app.get('/generate-qr', async (req, res) => {
   try {
     const { token } = req.query;
@@ -266,8 +171,6 @@ app.delete('/api/delete-bus-stop/:id', async (req, res) => {
         res.status(500).json({ error: 'Failed to delete bus stop' });
     }
 });
-
-// --- **[แก้ไขฟังก์ชันนี้]** ---
 app.post('/api/update-live-location', async (req, res) => {
     try {
         const { latitude, longitude } = req.body;
@@ -298,15 +201,11 @@ app.post('/api/update-live-location', async (req, res) => {
         if (closestStop && minDistance < 20) {
             statusMessage = `ถึงแล้ว: ${closestStop.name}`;
             
-            // เปลี่ยน Logic จากการเรียก API เป็นการค้นหาจาก Audio Map
             if (!previousStatus.includes(closestStop.name)) {
-                // ค้นหา URL เสียงจาก "แผนที่เสียง" ที่เราสร้างไว้ข้างบน
                 audioNotificationUrl = arrivalAudioMap[closestStop.name]; 
-                
                 if (audioNotificationUrl) {
                     console.log(`Found pre-generated audio for ${closestStop.name}: ${audioNotificationUrl}`);
                 } else {
-                    // Log เตือนไว้ ในกรณีที่หาเสียงของป้ายนั้นไม่เจอในแผนที่
                     console.warn(`Audio URL not found in arrivalAudioMap for stop: ${closestStop.name}`);
                 }
             }
@@ -336,6 +235,113 @@ app.post('/api/update-live-location', async (req, res) => {
     } catch (error) {
         console.error("Update Live Location Error:", error);
         res.status(500).json({ success: false, message: 'Server error' });
+    }
+});
+
+app.get('/api/dashboard/stats', async (req, res) => {
+    try {
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+
+        const sevenDaysAgo = new Date();
+        sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+
+        const [
+            usersSnapshot,
+            registrationsTodaySnapshot,
+            checkinsSnapshot,
+            servingSnapshot,
+            waitingSnapshot,
+            recentUsersSnapshot,
+            finishedQueuesTodaySnapshot
+        ] = await Promise.all([
+            db.collection('users').get(),
+            db.collection('users').where('registeredAt', '>=', today).get(),
+            db.collection('checkin_events').where('checkInTime', '>=', today).get(),
+            db.collection('queues').where('status', '==', 'SERVING').get(),
+            db.collection('queues').where('status', '==', 'WAITING').get(),
+            db.collection('users').where('registeredAt', '>=', sevenDaysAgo).orderBy('registeredAt').get(),
+            db.collection('queues').where('status', '==', 'FINISHED').where('finishTime', '>=', today).get()
+        ]);
+        
+        const totalUsers = usersSnapshot.size;
+        const registrationsToday = registrationsTodaySnapshot.size;
+        const checkinsToday = checkinsSnapshot.size;
+        
+        const queueStatus = {
+            serving: servingSnapshot.docs.map(doc => doc.data()),
+            waiting: waitingSnapshot.docs.map(doc => doc.data()),
+        };
+
+        const registrationChartData = { labels: [], data: [] };
+        const regCounts = {};
+        recentUsersSnapshot.docs.forEach(doc => {
+            const date = new Date(doc.data().registeredAt.seconds * 1000).toLocaleDateString('en-CA');
+            regCounts[date] = (regCounts[date] || 0) + 1;
+        });
+        for(let i=6; i>=0; i--) {
+            const d = new Date();
+            d.setDate(d.getDate() - i);
+            const label = d.toLocaleDateString('en-CA');
+            registrationChartData.labels.push(label);
+            registrationChartData.data.push(regCounts[label] || 0);
+        }
+
+        const checkinChartData = { labels: [], data: [] };
+        const checkinCounts = Array(24).fill(0); 
+        checkinsSnapshot.docs.forEach(doc => {
+            const hour = new Date(doc.data().checkInTime.seconds * 1000).getHours();
+            checkinCounts[hour]++;
+        });
+        for (let i = 0; i < 24; i++) {
+            checkinChartData.labels.push(`${i}:00`);
+            checkinChartData.data.push(checkinCounts[i]);
+        }
+        
+        const staffCheckinCounts = {};
+        checkinsSnapshot.docs.forEach(doc => {
+            const staffName = doc.data().scannedBy;
+            if (staffName) {
+                staffCheckinCounts[staffName] = (staffCheckinCounts[staffName] || 0) + 1;
+            }
+        });
+        const staffLeaderboard = Object.entries(staffCheckinCounts)
+            .map(([name, count]) => ({ name, count }))
+            .sort((a, b) => b.count - a.count);
+
+        let totalWaitTimeMinutes = 0;
+        finishedQueuesTodaySnapshot.docs.forEach(doc => {
+            const data = doc.data();
+            if (data.finishTime && data.checkInTime) {
+                const waitTime = (data.finishTime.seconds - data.checkInTime.seconds) / 60;
+                totalWaitTimeMinutes += waitTime;
+            }
+        });
+        
+        const averageWaitTime = finishedQueuesTodaySnapshot.size > 0 
+            ? (totalWaitTimeMinutes / finishedQueuesTodaySnapshot.size).toFixed(1) 
+            : 0;
+
+        const summaryData = {
+            topPerformingStaff: staffLeaderboard.length > 0 ? staffLeaderboard[0] : null,
+            averageWaitTime: averageWaitTime,
+            totalFinishedToday: finishedQueuesTodaySnapshot.size
+        };
+
+        res.json({
+            totalUsers,
+            registrationsToday,
+            checkinsToday,
+            queueStatus,
+            registrationChartData,
+            checkinChartData,
+            staffLeaderboard,
+            summaryData
+        });
+
+    } catch (error) {
+        console.error("Dashboard Stats API Error:", error);
+        res.status(500).json({ error: 'Failed to fetch dashboard stats' });
     }
 });
 

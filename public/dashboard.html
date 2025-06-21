@@ -12,26 +12,44 @@
     </header>
 
     <main class="dashboard-grid">
-        <!-- ส่วนที่ 1: สถานะคิว -->
+        <!-- ส่วนสรุปข้อมูล -->
+        <section class="card" id="summary-card">
+            <h2>สรุปภาพรวมสำคัญวันนี้</h2>
+            <div class="summary-container">
+                <div class="summary-item">
+                    <h4>พนักงานดีเด่น</h4>
+                    <p id="summary-top-staff">N/A</p>
+                    <small id="summary-top-staff-count">0 Check-ins</small>
+                </div>
+                <div class="summary-item">
+                    <h4>เวลารอคิวเฉลี่ย</h4>
+                    <p id="summary-avg-wait">0</p>
+                    <small>นาที</small>
+                </div>
+                <div class="summary-item">
+                    <h4>ให้บริการเสร็จสิ้น</h4>
+                    <p id="summary-finished-queues">0</p>
+                    <small>คิว</small>
+                </div>
+            </div>
+        </section>
+
+        <!-- สถานะคิว -->
         <section class="card" id="queue-status">
             <h2><span class="live-dot"></span> สถานะคิว Real-time</h2>
             <div class="queue-container">
                 <div id="serving-queues">
                     <h3>ห้องที่กำลังให้บริการ</h3>
-                    <div class="serving-list">
-                        <!-- ข้อมูลจะถูกใส่โดย JavaScript -->
-                    </div>
+                    <div class="serving-list"></div>
                 </div>
                 <div id="waiting-queues">
                     <h3>คิวที่กำลังรอ</h3>
-                    <ul class="waiting-list">
-                        <!-- ข้อมูลจะถูกใส่โดย JavaScript -->
-                    </ul>
+                    <ul class="waiting-list"></ul>
                 </div>
             </div>
         </section>
 
-        <!-- ส่วนที่ 2: สถิติภาพรวม -->
+        <!-- สถิติภาพรวม -->
         <section class="card" id="overall-stats">
             <h2>ภาพรวมวันนี้</h2>
             <div class="stats-container">
@@ -50,15 +68,13 @@
             </div>
         </section>
         
-      <!-- **[เพิ่มการ์ดนี้]** ส่วนที่ 3: สถิติการทำงานของ Staff -->
+        <!-- สถิติการทำงานของ Staff -->
         <section class="card" id="staff-leaderboard">
             <h2>🏆 Staff Leaderboard (เช็คอินวันนี้)</h2>
-            <ol class="leaderboard-list">
-                <!-- ข้อมูล Leaderboard จะถูกใส่โดย JavaScript -->
-            </ol>
+            <ol class="leaderboard-list"></ol>
         </section>
-       
-      <!-- ส่วนที่ 3: กราฟการลงทะเบียน -->
+
+        <!-- กราฟการลงทะเบียน -->
         <section class="card" id="registration-chart-card">
             <h2>กราฟการลงทะเบียนใหม่ (7 วันย้อนหลัง)</h2>
             <div class="chart-container">
@@ -66,7 +82,7 @@
             </div>
         </section>
         
-        <!-- ส่วนที่ 4: กราฟการเช็คอิน -->
+        <!-- กราฟการเช็คอิน -->
         <section class="card" id="checkin-chart-card">
             <h2>กราฟการเช็คอินรายชั่วโมง (วันนี้)</h2>
             <div class="chart-container">
@@ -75,9 +91,7 @@
         </section>
     </main>
     
-    <!-- Chart.js สำหรับกราฟ -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <!-- Dashboard JS -->
     <script src="dashboard.js"></script>
 </body>
 </html>
