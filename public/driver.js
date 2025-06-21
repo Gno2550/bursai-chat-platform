@@ -1,11 +1,11 @@
-// driver.js (Automatic GPS Tracking - FINAL VERSION)
+// driver.js (Automatic GPS Tracking - FINAL VERSION with Correct Audio Handling)
 document.addEventListener('DOMContentLoaded', () => {
     const statusDiv = document.getElementById('status');
     const startBtn = document.getElementById('start-tracking');
     const stopBtn = document.getElementById('stop-tracking');
     let watchId = null;
 
-    // สร้าง Audio object ไว้ใช้ซ้ำสำหรับเสียงแจ้งเตือน
+    // สร้าง Audio object ไว้ใช้ซ้ำสำหรับเสียงแจ้งเตือนเมื่อถึงป้าย
     const notificationSound = new Audio();
 
     const API_URL = '/api/update-live-location';
@@ -92,32 +92,41 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
         if (watchId) return;
-        
+
+        // เริ่มติดตามตำแหน่ง GPS ก่อน
         watchId = navigator.geolocation.watchPosition(updateLocation, handleError, {
-            enableHighAccuracy: true,
-            timeout: 10000,
-            maximumAge: 0
+            enableHighAccuracy: true, timeout: 10000, maximumAge: 0
         });
 
+        // อัปเดต UI
         statusDiv.textContent = 'เริ่มการติดตามตำแหน่งแล้ว...';
         startBtn.disabled = true;
         stopBtn.disabled = false;
         
-        // Logic เล่นเสียงตอนเริ่มต้น
+        // --- **[การแก้ไข Logic การเล่นเสียงที่ถูกต้อง 100%]** ---
         try {
+            const startSound = new Audio();
+            
+            // 1. บอกเบราว์เซอร์ว่า "ถ้าโหลดเสียงนี้เสร็จเมื่อไหร่ ให้เล่นทันทีนะ"
+            startSound.addEventListener('canplaythrough', () => {
+                console.log("Audio is ready to play.");
+                startSound.play().catch(e => console.error("Error playing start audio:", e));
+            }, { once: true }); // { once: true } คือให้ทำแค่ครั้งเดียวแล้วหยุดฟัง
+
+            // 2. สร้าง URL
             const apiKey = "iqLAn3GJUe6DfxCSrwQFtY8WbIcxibzf";
             const textToSpeak = "เริ่มการติดตามด้วยระบบบียูโก";
             const encodedText = encodeURIComponent(textToSpeak);
-            
             const startAudioUrl = `https://botnoi-voice.onrender.com/api/v1/tts?text=${encodedText}&speaker=b_male&speed=1&type=wav&auth=${apiKey}`;
             
-            console.log("Playing start-up audio with API Key.");
-            const startSound = new Audio(startAudioUrl);
-            startSound.play().catch(e => console.error("Error playing start audio:", e));
+            // 3. กำหนด src (การกระทำนี้จะเริ่มกระบวนการดาวน์โหลด)
+            console.log("Requesting start-up audio from:", startAudioUrl);
+            startSound.src = startAudioUrl;
 
         } catch (error) {
-            console.error("Could not play start-up sound:", error);
+            console.error("Could not initialize start-up sound:", error);
         }
+        // --- สิ้นสุดการแก้ไข ---
     });
 
     stopBtn.addEventListener('click', () => {
