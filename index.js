@@ -20,16 +20,14 @@ const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash-latest" });
 const TOTAL_ROOMS = 5;
 
-// --- "แผนที่เสียง" (Audio Map) สำหรับเสียงแจ้งเตือนเมื่อถึงป้าย ---
-// **[สำคัญ]** คุณต้องแก้ไขชื่อป้าย (Key) และ URL ของไฟล์ MP3 (Value) ให้ตรงกับข้อมูลของคุณ
+// --- "แผนที่เสียง" (Audio Map) ---
 const arrivalAudioMap = {
     "BUS_STOP1": "https://cdn.glitch.global/4a2b378a-09fc-47bc-b98f-5ba993690b44/1-%E0%B8%96%E0%B8%B6%E0%B8%87%E0%B8%88%E0%B8%B8%E0%B8%94%E0%B8%88%E0%B8%AD%E0%B8%94%E0%B8%A3.mp3?v=1750519742261",
     "BUS_STOP2": "https://cdn.glitch.global/4a2b378a-09fc-47bc-b98f-5ba993690b44/1-%E0%B8%96%E0%B8%B6%E0%B8%87%E0%B8%88%E0%B8%B8%E0%B8%94%E0%B8%88%E0%B8%AD%E0%B8%94%E0%B8%A3.mp3?v=1750519742261",
     "BUS_STOP3": "https://cdn.glitch.global/4a2b378a-09fc-47bc-b98f-5ba993690b44/1-%E0%B8%96%E0%B8%B6%E0%B8%87%E0%B8%88%E0%B8%B8%E0%B8%94%E0%B8%88%E0%B8%AD%E0%B8%94%E0%B8%A3.mp3?v=1750519742261",
     "BUS_STOP4": "https://cdn.glitch.global/4a2b378a-09fc-47bc-b98f-5ba993690b44/1-%E0%B8%96%E0%B8%B6%E0%B8%87%E0%B8%88%E0%B8%B8%E0%B8%94%E0%B8%88%E0%B8%AD%E0%B8%94%E0%B8%A3.mp3?v=1750519742261",
 
-    // ตัวอย่างการเพิ่มป้ายต่อไป:
-    // "ชื่อป้ายที่ตรงกับใน Firestore": "URL ของไฟล์เสียงจาก Assets",
+  // เพิ่มป้ายอื่นๆ ของคุณที่นี่
 };
 
 
@@ -276,8 +274,11 @@ app.get('/api/dashboard/stats', async (req, res) => {
         const registrationChartData = { labels: [], data: [] };
         const regCounts = {};
         recentUsersSnapshot.docs.forEach(doc => {
-            const date = new Date(doc.data().registeredAt.seconds * 1000).toLocaleDateString('en-CA');
-            regCounts[date] = (regCounts[date] || 0) + 1;
+            const data = doc.data();
+            if (data.registeredAt && data.registeredAt.seconds) {
+                const date = new Date(data.registeredAt.seconds * 1000).toLocaleDateString('en-CA');
+                regCounts[date] = (regCounts[date] || 0) + 1;
+            }
         });
         for(let i=6; i>=0; i--) {
             const d = new Date();
@@ -290,8 +291,11 @@ app.get('/api/dashboard/stats', async (req, res) => {
         const checkinChartData = { labels: [], data: [] };
         const checkinCounts = Array(24).fill(0); 
         checkinsSnapshot.docs.forEach(doc => {
-            const hour = new Date(doc.data().checkInTime.seconds * 1000).getHours();
-            checkinCounts[hour]++;
+            const data = doc.data();
+            if (data.checkInTime && data.checkInTime.seconds) {
+                const hour = new Date(data.checkInTime.seconds * 1000).getHours();
+                checkinCounts[hour]++;
+            }
         });
         for (let i = 0; i < 24; i++) {
             checkinChartData.labels.push(`${i}:00`);
@@ -312,6 +316,7 @@ app.get('/api/dashboard/stats', async (req, res) => {
         let totalWaitTimeMinutes = 0;
         finishedQueuesTodaySnapshot.docs.forEach(doc => {
             const data = doc.data();
+            // --- **[แก้ไข]** เพิ่มการตรวจสอบข้อมูลก่อนคำนวณ ---
             if (data.finishTime && data.checkInTime) {
                 const waitTime = (data.finishTime.seconds - data.checkInTime.seconds) / 60;
                 totalWaitTimeMinutes += waitTime;
