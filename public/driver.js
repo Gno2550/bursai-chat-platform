@@ -1,11 +1,11 @@
-// driver.js (Automatic GPS Tracking - FINAL VERSION with Correct Audio Handling)
+// driver.js (เวอร์ชันแก้ไขสมบูรณ์และถูกต้องที่สุด)
 document.addEventListener('DOMContentLoaded', () => {
     const statusDiv = document.getElementById('status');
     const startBtn = document.getElementById('start-tracking');
     const stopBtn = document.getElementById('stop-tracking');
     let watchId = null;
 
-    // สร้าง Audio object ไว้ใช้ซ้ำสำหรับเสียงแจ้งเตือนเมื่อถึงป้าย
+    // สร้าง Audio object ไว้ใช้ซ้ำสำหรับเสียงแจ้งเตือน "ถึงแล้ว"
     const notificationSound = new Audio();
 
     const API_URL = '/api/update-live-location';
@@ -13,7 +13,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function updateLocation(position) {
         const { latitude, longitude, speed, heading } = position.coords;
 
-        // ด่านตรวจพิกัดที่แม่นยำ
+        // ด่านตรวจพิกัดที่แม่นยำ ป้องกันพิกัดที่ผิดพลาด
         if (latitude === 0 && longitude === 0) {
             statusDiv.textContent = 'กำลังรอสัญญาณ GPS ที่แม่นยำ...';
             statusDiv.style.color = 'orange';
@@ -29,6 +29,7 @@ document.addEventListener('DOMContentLoaded', () => {
         statusDiv.textContent = `กำลังส่งตำแหน่ง... (${statusText})`;
         statusDiv.style.color = 'blue';
 
+        // ส่งข้อมูลตำแหน่งไปยังเซิร์ฟเวอร์
         fetch(API_URL, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -50,7 +51,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 statusDiv.textContent = `ส่งตำแหน่งล่าสุดแล้ว! (${new Date().toLocaleTimeString()})`;
                 statusDiv.style.color = 'green';
 
-                // Logic เล่นเสียงแจ้งเตือนเมื่อถึงป้าย
+                // Logic เล่นเสียงแจ้งเตือนเมื่อถึงป้าย (จากเซิร์ฟเวอร์)
                 if (data.audioUrl) {
                     console.log("Received arrival audio URL:", data.audioUrl);
                     notificationSound.src = data.audioUrl;
@@ -93,40 +94,49 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         if (watchId) return;
 
-        // เริ่มติดตามตำแหน่ง GPS ก่อน
+        // เริ่มติดตามตำแหน่ง GPS
         watchId = navigator.geolocation.watchPosition(updateLocation, handleError, {
-            enableHighAccuracy: true, timeout: 10000, maximumAge: 0
+            enableHighAccuracy: true, 
+            timeout: 10000, 
+            maximumAge: 0
         });
 
-        // อัปเดต UI
+        // อัปเดตสถานะบนหน้าเว็บ
         statusDiv.textContent = 'เริ่มการติดตามตำแหน่งแล้ว...';
         startBtn.disabled = true;
         stopBtn.disabled = false;
         
-        // --- **[การแก้ไข Logic การเล่นเสียงที่ถูกต้อง 100%]** ---
+        // --- [Logic การเล่นเสียงตอนเริ่มต้น ที่ถูกต้องและสมบูรณ์] ---
         try {
             const startSound = new Audio();
             
-            // 1. บอกเบราว์เซอร์ว่า "ถ้าโหลดเสียงนี้เสร็จเมื่อไหร่ ให้เล่นทันทีนะ"
+            // 1. ตั้งค่า Event Listener: "ถ้าโหลดเสียงนี้พร้อมเล่นเมื่อไหร่ ให้สั่ง play ทันที"
+            // ใช้ { once: true } เพื่อให้ Listener ทำงานแค่ครั้งเดียวแล้วลบตัวเองทิ้งไป
             startSound.addEventListener('canplaythrough', () => {
-                console.log("Audio is ready to play.");
+                console.log("Start-up audio is ready to play.");
                 startSound.play().catch(e => console.error("Error playing start audio:", e));
-            }, { once: true }); // { once: true } คือให้ทำแค่ครั้งเดียวแล้วหยุดฟัง
+            }, { once: true });
 
-            // 2. สร้าง URL
+            startSound.addEventListener('error', (e) => {
+                console.error("An error occurred with the start-up audio:", e);
+                // อาจจะแสดงข้อความบน UI ด้วยก็ได้
+                // statusDiv.textContent = 'ไม่สามารถเล่นเสียงเริ่มต้นได้';
+            });
+            
+            // 2. สร้าง URL สำหรับเรียก API ของ Botnoi
             const apiKey = "iqLAn3GJUe6DfxCSrwQFtY8WbIcxibzf";
             const textToSpeak = "เริ่มการติดตามด้วยระบบบียูโก";
             const encodedText = encodeURIComponent(textToSpeak);
             const startAudioUrl = `https://botnoi-voice.onrender.com/api/v1/tts?text=${encodedText}&speaker=b_male&speed=1&type=wav&auth=${apiKey}`;
             
-            // 3. กำหนด src (การกระทำนี้จะเริ่มกระบวนการดาวน์โหลด)
-            console.log("Requesting start-up audio from:", startAudioUrl);
+            // 3. กำหนด URL ให้กับ Audio object (ขั้นตอนนี้จะเริ่มกระบวนการดาวน์โหลดเสียง)
+            console.log("Requesting start-up audio from Botnoi...");
             startSound.src = startAudioUrl;
 
         } catch (error) {
             console.error("Could not initialize start-up sound:", error);
         }
-        // --- สิ้นสุดการแก้ไข ---
+        // --- สิ้นสุด Logic การเล่นเสียง ---
     });
 
     stopBtn.addEventListener('click', () => {
