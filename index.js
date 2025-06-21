@@ -183,22 +183,19 @@ app.post('/api/update-live-location', async (req, res) => {
         let statusMessage = "ระหว่างทาง";
         let etaMinutes = 0;
         let nextStopLocation = null;
-        let audioNotificationUrl = null; // **[เพิ่ม]** ตัวแปรสำหรับเก็บ URL เสียง
-
-        if (closestStop && minDistance < 20) { // ระยะที่ถือว่า "ถึงแล้ว" (20 เมตร)
+        let audioNotificationUrl = null; 
+        
+        if (closestStop && minDistance < 20) {
             statusMessage = `ถึงแล้ว: ${closestStop.name}`;
             
-            // --- **[เพิ่ม Logic สำคัญ]** ตรวจสอบว่า "เพิ่งมาถึง" หรือไม่ ---
             if (!previousStatus.includes(closestStop.name)) {
-                // ถ้าสถานะก่อนหน้า ไม่ใช่การ "ถึงแล้ว" ที่ป้ายเดิม แสดงว่าเพิ่งมาถึง
+                // ย้าย Key มาเก็บใน .env เพื่อความปลอดภัย
+                const apiKey = process.env.BOTNOI_API_KEY || "iqLAn3GJUe6DfxCSrwQFtY8WbIcxibzf";
                 const textToSpeak = `ถึงแล้ว, ${closestStop.name}`;
                 const encodedText = encodeURIComponent(textToSpeak);
-                // สร้าง URL สำหรับ Botnoi TTS API
-                audioNotificationUrl = `https://botnoi-voice.onrender.com/api/v1/tts?text=${encodedText}&speaker=b_male&speed=1&type=wav`;
-                console.log(`Generated TTS URL for arrival: ${audioNotificationUrl}`);
+                audioNotificationUrl = `https://botnoi-voice.onrender.com/api/v1/tts?text=${encodedText}&speaker=b_male&speed=1&type=wav&auth=${apiKey}`;
+                console.log(`Generated TTS URL with API Key for arrival: ${audioNotificationUrl}`);
             }
-            // --- สิ้นสุด Logic ---
-
         } else if (closestStop) {
             const AVERAGE_SPEED_KMPH = 15;
             const speedMps = (AVERAGE_SPEED_KMPH * 1000) / 3600;
@@ -216,11 +213,10 @@ app.post('/api/update-live-location', async (req, res) => {
             nextStopLocation: nextStopLocation
         }, { merge: true });
         
-        // **[แก้ไข]** ส่ง URL เสียงกลับไปให้ Driver ด้วย
         res.json({ 
             success: true, 
             message: 'Location updated',
-            audioUrl: audioNotificationUrl // ถ้าไม่มี URL นี้จะเป็น null
+            audioUrl: audioNotificationUrl 
         });
 
     } catch (error) {
