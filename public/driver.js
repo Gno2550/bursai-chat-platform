@@ -48,6 +48,13 @@ document.addEventListener('DOMContentLoaded', () => {
             if (data.success) {
                 statusDiv.textContent = `ส่งตำแหน่งล่าสุดแล้ว! (${new Date().toLocaleTimeString()})`;
                 statusDiv.style.color = 'green';
+             // --- **[เพิ่ม Logic เล่นเสียง]** ---
+            if (data.audioUrl) {
+                    console.log("Received audio URL:", data.audioUrl);
+                    notificationSound.src = data.audioUrl;
+                    notificationSound.play().catch(e => console.error("Error playing audio:", e));
+                }
+                // --- สิ้นสุด Logic ---
             } else {
                 throw new Error(data.message || 'Server returned an error');
             }
