@@ -172,15 +172,16 @@ app.post('/api/update-live-location', async (req, res) => {
     try {
         const { latitude, longitude } = req.body;
         if (!latitude || !longitude) { return res.status(400).json({ success: false, message: 'Invalid location data' }); }
-        
+
         const cartRef = db.collection('golf_carts').doc('cart_01');
         const cartDoc = await cartRef.get();
         const currentCartData = cartDoc.exists ? cartDoc.data() : {};
         const previousStatus = currentCartData.status || '';
+        const previousClosestStopName = currentCartData.closestStopName || null;
 
         const stopsSnapshot = await db.collection('bus_stops').orderBy('name').get();
         const stops = stopsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-        
+
         let closestStop = null;
         let minDistance = Infinity;
         if (stops.length > 0) {
@@ -189,45 +190,65 @@ app.post('/api/update-live-location', async (req, res) => {
                 if (distance < minDistance) { minDistance = distance; closestStop = stop; }
             });
         }
-        
+
         let statusMessage = "ระหว่างทาง";
-        let etaMinutes = 0;
-        let nextStopLocation = null;
-        let audioNotificationUrl = null; 
-        
-        if (closestStop && minDistance < 20) {
+        let audioNotificationUrl = null;
+
+        // --- [Logic ใหม่] การจัดการสถานะและการบันทึก Log การเดินทาง ---
+        const now = new Date();
+        const travelLogsRef = db.collection('travel_logs');
+
+        if (closestStop && minDistance < 20) { // เมื่อถึงป้าย
             statusMessage = `ถึงแล้ว: ${closestStop.name}`;
-            
             if (!previousStatus.includes(closestStop.name)) {
-                audioNotificationUrl = arrivalAudioMap[closestStop.name]; 
-                if (audioNotificationUrl) {
-                    console.log(`Found pre-generated audio for ${closestStop.name}: ${audioNotificationUrl}`);
-                } else {
-                    console.warn(`Audio URL not found in arrivalAudioMap for stop: ${closestStop.name}`);
+                audioNotificationUrl = arrivalAudioMap[closestStop.name];
+
+                // ค้นหา Log การออกเดินทางล่าสุดที่ยังไม่เสร็จ
+                const lastDepartureQuery = await travelLogsRef
+                    .where('cartId', '==', 'cart_01')
+                    .where('status', '==', 'DEPARTED')
+                    .orderBy('departureTime', 'desc')
+                    .limit(1)
+                    .get();
+
+                if (!lastDepartureQuery.empty) {
+                    const departureDoc = lastDepartureQuery.docs[0];
+                    const departureData = departureDoc.data();
+                    const travelTimeSeconds = now.getTime() / 1000 - departureData.departureTime.seconds;
+                    
+                    // อัปเดต Log ว่าเดินทางสำเร็จแล้ว
+                    await departureDoc.ref.update({
+                        status: 'COMPLETED',
+                        destination: closestStop.name,
+                        arrivalTime: now,
+                        durationSeconds: travelTimeSeconds
+                    });
+                    console.log(`Travel log COMPLETED: From ${departureData.origin} to ${closestStop.name} in ${travelTimeSeconds.toFixed(0)}s`);
                 }
             }
-        } else if (closestStop) {
-            const AVERAGE_SPEED_KMPH = 15;
-            const speedMps = (AVERAGE_SPEED_KMPH * 1000) / 3600;
-            etaMinutes = (minDistance / speedMps) / 60;
+        } else if (closestStop) { // เมื่ออยู่ระหว่างทาง
             statusMessage = `กำลังมุ่งหน้าไป ${closestStop.name}`;
-            nextStopLocation = closestStop.location;
+            // ตรวจสอบว่าเพิ่งออกจากป้ายหรือไม่
+            if (previousClosestStopName && previousStatus.startsWith('ถึงแล้ว:') && !statusMessage.startsWith('ถึงแล้ว:')) {
+                 // สร้าง Log การออกเดินทางใหม่
+                 await travelLogsRef.add({
+                    cartId: 'cart_01',
+                    status: 'DEPARTED',
+                    origin: previousClosestStopName,
+                    departureTime: now
+                 });
+                 console.log(`Travel log DEPARTED: From ${previousClosestStopName}`);
+            }
         }
         
         await cartRef.set({ 
             location: new admin.firestore.GeoPoint(latitude, longitude), 
-            status: statusMessage, 
-            distanceToNextStop: minDistance, 
-            etaMinutes: etaMinutes, 
-            lastUpdate: new Date(),
-            nextStopLocation: nextStopLocation
+            status: statusMessage,
+            closestStopName: closestStop ? closestStop.name : null, // เก็บชื่อป้ายที่ใกล้ที่สุด
+            lastUpdate: now
         }, { merge: true });
         
-        res.json({ 
-            success: true, 
-            message: 'Location updated',
-            audioUrl: audioNotificationUrl 
-        });
+        res.json({ success: true, message: 'Location updated', audioUrl: audioNotificationUrl });
 
     } catch (error) {
         console.error("Update Live Location Error:", error);
@@ -346,6 +367,42 @@ app.get('/api/dashboard/stats', async (req, res) => {
     } catch (error) {
         console.error("Dashboard Stats API Error:", error);
         res.status(500).json({ error: 'Failed to fetch dashboard stats' });
+    }
+});
+app.get('/api/dashboard/travel-times', async (req, res) => {
+    try {
+        const completedLogsSnapshot = await db.collection('travel_logs')
+            .where('status', '==', 'COMPLETED')
+            .get();
+
+        const travelStats = {};
+
+        completedLogsSnapshot.docs.forEach(doc => {
+            const log = doc.data();
+            const routeKey = `${log.origin} -> ${log.destination}`;
+            if (!travelStats[routeKey]) {
+                travelStats[routeKey] = {
+                    totalDuration: 0,
+                    count: 0
+                };
+            }
+            travelStats[routeKey].totalDuration += log.durationSeconds;
+            travelStats[routeKey].count++;
+        });
+
+        const result = Object.entries(travelStats).map(([route, stats]) => {
+            return {
+                route: route,
+                averageTime: (stats.totalDuration / stats.count).toFixed(0), // วินาที
+                tripCount: stats.count
+            }
+        }).sort((a,b) => b.tripCount - a.tripCount); // เรียงตามจำนวนเที่ยว
+
+        res.json(result);
+
+    } catch (error) {
+        console.error("Travel Times API Error:", error);
+        res.status(500).json({ error: 'Failed to fetch travel times' });
     }
 });
 

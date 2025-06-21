@@ -3,7 +3,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- URLs & Intervals ---
     const STATS_API_URL = '/api/dashboard/stats';
     const UPDATE_INTERVAL = 30000; // 30 วินาที
-
+    const TRAVEL_TIMES_API_URL = '/api/dashboard/travel-times';
     // --- DOM Elements ---
     const summaryTopStaff = document.getElementById('summary-top-staff');
     const summaryTopStaffCount = document.getElementById('summary-top-staff-count');
@@ -15,6 +15,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const servingListDiv = document.querySelector('.serving-list');
     const waitingListUl = document.querySelector('.waiting-list');
     const leaderboardOl = document.querySelector('.leaderboard-list');
+    const travelTimesBody = document.getElementById('travel-times-body');
 
     // --- Chart.js Setup ---
     const regCtx = document.getElementById('registration-chart').getContext('2d');
@@ -32,10 +33,15 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     // --- Data Fetching & Rendering Function ---
-    async function updateDashboard() {
+     async function updateDashboard() {
         try {
-            const response = await fetch(STATS_API_URL);
-            const stats = await response.json();
+            // ดึงข้อมูล 2 API พร้อมกัน
+            const [statsResponse, travelTimesResponse] = await Promise.all([
+                fetch(STATS_API_URL),
+                fetch(TRAVEL_TIMES_API_URL)
+            ]);
+            const stats = await statsResponse.json();
+            const travelTimes = await travelTimesResponse.json();
 
             // ส่วนสรุปข้อมูล
             const summary = stats.summaryData;
@@ -97,7 +103,23 @@ document.addEventListener('DOMContentLoaded', () => {
             checkinChart.data.labels = stats.checkinChartData.labels;
             checkinChart.data.datasets[0].data = stats.checkinChartData.data;
             checkinChart.update();
-
+            
+             travelTimesBody.innerHTML = ''; // Clear old data
+            if (travelTimes && travelTimes.length > 0) {
+                travelTimes.forEach(route => {
+                    const row = `
+                        <tr>
+                            <td>${route.route}</td>
+                            <td>${route.averageTime}</td>
+                            <td>${route.tripCount}</td>
+                        </tr>
+                    `;
+                    travelTimesBody.innerHTML += row;
+                });
+            } else {
+                travelTimesBody.innerHTML = '<tr><td colspan="3">ยังไม่มีข้อมูลการเดินทางที่เสร็จสมบูรณ์</td></tr>';
+            }
+            // --- สิ้นสุดการเพิ่ม ---
         } catch (error) {
             console.error("Failed to update dashboard:", error);
         }

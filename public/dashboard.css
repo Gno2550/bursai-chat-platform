@@ -171,3 +171,28 @@ header h1 {
     position: relative;
     flex-grow: 1;
 }
+/* สไตล์สำหรับ Travel Time Analysis */
+#travel-time-analysis {
+    grid-column: 1 / -1; /* ทำให้การ์ดนี้ยาวเต็มแถว */
+}
+.table-container {
+    width: 100%;
+    overflow-x: auto; /* สำหรับจอเล็ก */
+    flex-grow: 1;
+}
+table {
+    width: 100%;
+    border-collapse: collapse;
+}
+th, td {
+    text-align: left;
+    padding: 12px;
+    border-bottom: 1px solid #eee;
+}
+th {
+    background-color: #f8f9fa;
+    font-weight: 600;
+}
+tbody tr:hover {
+    background-color: #f1f1f1;
+}
