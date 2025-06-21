@@ -75,6 +75,8 @@ app.post('/api/staff-login', async (req, res) => {
 
 // --- User-Facing API Routes ---
 
+// ในไฟล์ index.js, วางทับ app.get('/api/dashboard/stats', ...) เดิมทั้งหมด
+
 app.get('/api/dashboard/stats', async (req, res) => {
     try {
         const today = new Date();
@@ -87,7 +89,7 @@ app.get('/api/dashboard/stats', async (req, res) => {
         const [
             usersSnapshot,
             registrationsTodaySnapshot,
-            checkinsSnapshot, // เราจะใช้ข้อมูลนี้ในการนับสถิติ Staff
+            checkinsSnapshot,
             servingSnapshot,
             waitingSnapshot,
             recentUsersSnapshot
@@ -110,11 +112,11 @@ app.get('/api/dashboard/stats', async (req, res) => {
             waiting: waitingSnapshot.docs.map(doc => doc.data()),
         };
 
-        // กราฟลงทะเบียน (รายวัน)
+        // **[โค้ดที่ขาดหายไป]** กราฟลงทะเบียน (รายวัน)
         const registrationChartData = { labels: [], data: [] };
         const regCounts = {};
         recentUsersSnapshot.docs.forEach(doc => {
-            const date = new Date(doc.data().registeredAt.seconds * 1000).toLocaleDateString('en-CA');
+            const date = new Date(doc.data().registeredAt.seconds * 1000).toLocaleDateString('en-CA'); // YYYY-MM-DD format
             regCounts[date] = (regCounts[date] || 0) + 1;
         });
         for(let i=6; i>=0; i--) {
@@ -125,33 +127,39 @@ app.get('/api/dashboard/stats', async (req, res) => {
             registrationChartData.data.push(regCounts[label] || 0);
         }
 
-        // กราฟเช็คอิน (รายชั่วโมง)
+        // **[โค้ดที่ขาดหายไป]** กราฟเช็คอิน (รายชั่วโมง)
         const checkinChartData = { labels: [], data: [] };
-         const staffCheckinCounts = {};
+        const checkinCounts = Array(24).fill(0); // สร้าง array 24 ช่องสำหรับแต่ละชั่วโมง
         checkinsSnapshot.docs.forEach(doc => {
-            const staffName = doc.data().scannedBy;
-            if (staffName) { // ตรวจสอบว่ามีชื่อ staff หรือไม่
-                staffCheckinCounts[staffName] = (staffCheckinCounts[staffName] || 0) + 1;
-            }
+            const hour = new Date(doc.data().checkInTime.seconds * 1000).getHours();
+            checkinCounts[hour]++;
         });
-       // แปลง Object เป็น Array แล้วเรียงลำดับจากมากไปน้อย
-        const staffLeaderboard = Object.entries(staffCheckinCounts)
-            .map(([name, count]) => ({ name, count }))
-            .sort((a, b) => b.count - a.count);
-        // --- สิ้นสุดการเพิ่ม ---
         for (let i = 0; i < 24; i++) {
             checkinChartData.labels.push(`${i}:00`);
             checkinChartData.data.push(checkinCounts[i]);
         }
         
-          res.json({
+        // ประมวลผลสถิติ Staff Leaderboard
+        const staffCheckinCounts = {};
+        checkinsSnapshot.docs.forEach(doc => {
+            const staffName = doc.data().scannedBy;
+            if (staffName) {
+                staffCheckinCounts[staffName] = (staffCheckinCounts[staffName] || 0) + 1;
+            }
+        });
+        const staffLeaderboard = Object.entries(staffCheckinCounts)
+            .map(([name, count]) => ({ name, count }))
+            .sort((a, b) => b.count - a.count);
+
+        // ส่งข้อมูลทั้งหมดกลับไป
+        res.json({
             totalUsers,
             registrationsToday,
             checkinsToday,
             queueStatus,
             registrationChartData,
             checkinChartData,
-            staffLeaderboard // <-- ข้อมูลใหม่
+            staffLeaderboard 
         });
 
     } catch (error) {
