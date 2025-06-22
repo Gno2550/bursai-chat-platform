@@ -10,13 +10,17 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- Leaflet Map Setup ---
     let map;
     let driverMarker = null;
-    const driverIcon = L.icon({ iconUrl: 'YOUR_GOLF_CART_ICON_URL', iconSize: [45, 45] });
-    const stopIcon = L.icon({ iconUrl: 'YOUR_BUS_STOP_ICON_URL', iconSize: [35, 35] });
+
+    // --- **[สำคัญ!]** แก้ไข URL ทั้ง 3 บรรทัดนี้ให้เป็น URL จาก ASSETS ของคุณ ---
+    const driverIcon = L.icon({ iconUrl: 'https://cdn.glitch.global/4a2b378a-09fc-47bc-b98f-5ba993690b44/icons8-golf-cart-80.png?v=1750438227729', iconSize: [45, 45] });
+    const stopIcon = L.icon({ iconUrl: 'https://cdn.glitch.global/4a2b378a-09fc-47bc-b98f-5ba993690b44/icons8-bus-stop-96.png?v=1750447498203', iconSize: [35, 35] });
+    const startupAudioUrl = "https://cdn.glitch.global/4a2b378a-09fc-47bc-b98f-5ba993690b44/0-%E0%B9%80%E0%B8%A3%E0%B8%B4%E0%B9%88%E0%B8%A1%E0%B8%81%E0%B8%B2%E0%B8%A3%E0%B8%95%E0%B8%B4.mp3?v=1750521728365";
+    // --- สิ้นสุดส่วนที่ต้องแก้ไข ---
 
     function initMap() {
         map = L.map('map').setView([13.9615, 100.6230], 18);
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
-        drawBusStops(); // วาดป้ายรถเมล์ตอนเริ่ม
+        drawBusStops();
     }
 
     async function drawBusStops() {
@@ -38,17 +42,16 @@ document.addEventListener('DOMContentLoaded', () => {
     function updateLocation(position) {
         const { latitude, longitude } = position.coords;
 
-        if (latitude === 0 && longitude === 0) { /* ... */ return; }
-        if (latitude < 5 || latitude > 21 || longitude < 97 || longitude > 106) { /* ... */ return; }
+        if (latitude === 0 || longitude === 0) { return; }
+        if (latitude < 5 || latitude > 21 || longitude < 97 || longitude > 106) { return; }
         
-        // **[ใหม่]** อัปเดตตำแหน่ง Marker บนแผนที่
         const driverPosition = [latitude, longitude];
         if (!driverMarker) {
             driverMarker = L.marker(driverPosition, { icon: driverIcon }).addTo(map);
         } else {
             driverMarker.setLatLng(driverPosition);
         }
-        map.panTo(driverPosition); // เลื่อนแผนที่ตามคนขับ
+        map.panTo(driverPosition);
 
         statusDiv.textContent = `กำลังส่งตำแหน่ง...`;
         
@@ -71,7 +74,9 @@ document.addEventListener('DOMContentLoaded', () => {
         .catch(err => { statusDiv.textContent = `เกิดข้อผิดพลาด: ${err.message}`; });
     }
 
-    function handleError(error) { /* ... เหมือนเดิม ... */ }
+    function handleError(error) {
+        statusDiv.textContent = `GPS Error: ${error.message}`;
+    }
 
     // --- Event Listeners ---
     startBtn.addEventListener('click', () => {
@@ -85,10 +90,8 @@ document.addEventListener('DOMContentLoaded', () => {
         startBtn.disabled = true;
         stopBtn.disabled = false;
         
-        // เล่นเสียงเริ่มต้น (จากไฟล์ใน assets)
         try {
-            const startAudioUrl = "YOUR_STARTUP_MP3_URL_FROM_ASSETS";
-            const startSound = new Audio(startAudioUrl);
+            const startSound = new Audio(startupAudioUrl);
             startSound.play().catch(e => console.error("Error playing start audio:", e));
         } catch (error) { console.error("Could not play start-up sound:", error); }
     });

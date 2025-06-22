@@ -174,6 +174,7 @@ app.delete('/api/delete-bus-stop/:id', async (req, res) => {
         res.status(500).json({ error: 'Failed to delete bus stop' });
     }
 });
+// ในไฟล์ index.js
 app.post('/api/update-live-location', async (req, res) => {
     try {
         const { latitude, longitude } = req.body;
@@ -183,7 +184,6 @@ app.post('/api/update-live-location', async (req, res) => {
         const cartDoc = await cartRef.get();
         const currentCartData = cartDoc.exists ? cartDoc.data() : {};
         const previousStatus = currentCartData.status || '';
-        const previousClosestStopName = currentCartData.closestStopName || null;
 
         const stopsSnapshot = await db.collection('bus_stops').orderBy('name').get();
         const stops = stopsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
@@ -199,29 +199,47 @@ app.post('/api/update-live-location', async (req, res) => {
 
         let statusMessage = "ระหว่างทาง";
         let audioNotificationUrl = null;
-        let notifiedApproaching = false;
-         // --- [แก้ไข Logic การแจ้งเตือนทั้งหมด] ---
+        const now = new Date();
+        const travelLogsRef = db.collection('travel_logs');
+        let notifiedApproachingForThisStop = currentCartData.notifiedStopName === (closestStop ? closestStop.name : null);
+
+        // --- [แก้ไข Logic ใหม่ทั้งหมด] ---
         if (closestStop && minDistance < 20) { // เมื่อถึงป้าย
             statusMessage = `ถึงแล้ว: ${closestStop.name}`;
-            if (!previousStatus.includes(statusMessage)) {
+            if (!previousStatus.includes(statusMessage)) { // เพิ่งมาถึงจริงๆ
                 audioNotificationUrl = arrivalAudioMap[closestStop.name];
+
+                const lastDepartureQuery = await travelLogsRef.where('cartId', '==', 'cart_01').where('status', '==', 'DEPARTED').orderBy('departureTime', 'desc').limit(1).get();
+                if (!lastDepartureQuery.empty) {
+                    const departureDoc = lastDepartureQuery.docs[0];
+                    const travelTimeSeconds = now.getTime() / 1000 - departureDoc.data().departureTime.seconds;
+                    await departureDoc.ref.update({ status: 'COMPLETED', destination: closestStop.name, arrivalTime: now, durationSeconds: travelTimeSeconds });
+                    console.log(`Travel log COMPLETED for: ${closestStop.name}`);
+                }
             }
-        } else if (closestStop && minDistance < 70) { // **[ใหม่]** เมื่อเข้าใกล้ในระยะ 70 เมตร
+        } else if (closestStop && minDistance < 70) { // เมื่อเข้าใกล้
             statusMessage = `กำลังเข้าใกล้ ${closestStop.name}`;
-            notifiedApproaching = true; // ตั้งสถานะว่ากำลังจะแจ้งเตือน
-            if (!hasBeenNotifiedApproaching) { // ถ้ายังไม่เคยแจ้งเตือนมาก่อน
+            if (!notifiedApproachingForThisStop) { // ถ้ายังไม่เคยแจ้งเตือนสำหรับป้ายนี้
                 audioNotificationUrl = approachingAudioMap[closestStop.name];
+                // บันทึกว่าแจ้งเตือนแล้ว เพื่อไม่ให้แจ้งซ้ำ
+                await cartRef.update({ notifiedStopName: closestStop.name });
             }
-        } else if (closestStop) { // เมื่ออยู่ไกลกว่านั้น
+        } else if (closestStop) { // เมื่ออยู่ไกล
             statusMessage = `กำลังมุ่งหน้าไป ${closestStop.name}`;
-            // สถานะการแจ้งเตือนจะถูกรีเซ็ต (เป็น false) โดยอัตโนมัติเมื่อออกจากระยะ
+            // ตรวจสอบว่าเพิ่งออกจากป้าย
+            if (previousStatus.startsWith('ถึงแล้ว:')) {
+                const departedStopName = previousStatus.replace('ถึงแล้ว: ', '');
+                await travelLogsRef.add({ cartId: 'cart_01', status: 'DEPARTED', origin: departedStopName, departureTime: now });
+                console.log(`Travel log DEPARTED from: ${departedStopName}`);
+                // รีเซ็ตการแจ้งเตือนเมื่อออกจากป้าย
+                await cartRef.update({ notifiedStopName: null });
+            }
         }
         
-        await cartRef.set({ 
+        // อัปเดตสถานะหลัก
+        await cartRef.set({
             location: new admin.firestore.GeoPoint(latitude, longitude), 
             status: statusMessage,
-            notifiedApproaching: notifiedApproaching,
-            closestStopName: closestStop ? closestStop.name : null, // เก็บชื่อป้ายที่ใกล้ที่สุด
             lastUpdate: now
         }, { merge: true });
         
@@ -232,7 +250,6 @@ app.post('/api/update-live-location', async (req, res) => {
         res.status(500).json({ success: false, message: 'Server error' });
     }
 });
-
 app.get('/api/dashboard/stats', async (req, res) => {
     try {
         const today = new Date();
