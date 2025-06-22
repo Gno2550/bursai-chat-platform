@@ -404,16 +404,8 @@ app.get("/api/dashboard/stats", async (req, res) => {
       db.collection("checkin_events").where("checkInTime", ">=", today).get(),
       db.collection("queues").where("status", "==", "SERVING").get(),
       db.collection("queues").where("status", "==", "WAITING").get(),
-      db
-        .collection("users")
-        .where("registeredAt", ">=", sevenDaysAgo)
-        .orderBy("registeredAt")
-        .get(),
-      db
-        .collection("queues")
-        .where("status", "==", "FINISHED")
-        .where("finishTime", ">=", today)
-        .get(),
+      db.collection("users").where("registeredAt", ">=", sevenDaysAgo).orderBy("registeredAt").get(),
+      db.collection("queues").where("status", "==", "FINISHED").where("finishTime", ">=", today).get(),
     ]);
 
     const totalUsers = usersSnapshot.size;
@@ -430,9 +422,7 @@ app.get("/api/dashboard/stats", async (req, res) => {
     recentUsersSnapshot.docs.forEach((doc) => {
       const data = doc.data();
       if (data.registeredAt && data.registeredAt.seconds) {
-        const date = new Date(
-          data.registeredAt.seconds * 1000
-        ).toLocaleDateString("en-CA");
+        const date = new Date(data.registeredAt.seconds * 1000).toLocaleDateString("en-CA");
         regCounts[date] = (regCounts[date] || 0) + 1;
       }
     });
@@ -462,8 +452,7 @@ app.get("/api/dashboard/stats", async (req, res) => {
     checkinsSnapshot.docs.forEach((doc) => {
       const staffName = doc.data().scannedBy;
       if (staffName) {
-        staffCheckinCounts[staffName] =
-          (staffCheckinCounts[staffName] || 0) + 1;
+        staffCheckinCounts[staffName] =(staffCheckinCounts[staffName] || 0) + 1;
       }
     });
     const staffLeaderboard = Object.entries(staffCheckinCounts)
@@ -511,6 +500,47 @@ app.get("/api/dashboard/stats", async (req, res) => {
 });
 
 // --- ** ส่วนจัดการ Logic หลักของบอท (handleEvent) ** ---
+app.get('/api/dashboard/travel-times', async (req, res) => {
+    try {
+        const completedLogsSnapshot = await db.collection('travel_logs')
+            .where('status', '==', 'COMPLETED')
+            .get();
+
+        const travelStats = {};
+
+        completedLogsSnapshot.docs.forEach(doc => {
+            const log = doc.data();
+            if (log.origin && log.destination && typeof log.durationSeconds === 'number') {
+                const routeKey = `${log.origin} -> ${log.destination}`;
+                if (!travelStats[routeKey]) {
+                    travelStats[routeKey] = {
+                        totalDuration: 0,
+                        count: 0
+                    };
+                }
+                travelStats[routeKey].totalDuration += log.durationSeconds;
+                travelStats[routeKey].count++;
+            }
+        });
+
+        const result = Object.entries(travelStats).map(([route, stats]) => {
+            const averageSeconds = stats.totalDuration / stats.count;
+            const averageMinutes = (averageSeconds / 60).toFixed(1);
+            return {
+                route: route,
+                averageTimeMinutes: averageMinutes,
+                tripCount: stats.count
+            }
+        }).sort((a,b) => b.tripCount - a.tripCount);
+
+        res.json(result);
+
+    } catch (error) {
+        console.error("Travel Times API Error:", error);
+        res.status(500).json({ error: 'Failed to fetch travel times' });
+    }
+});
+
 async function handleEvent(event) {
   if (event.type === "postback") {
     return handlePostback(event);
