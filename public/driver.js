@@ -96,15 +96,36 @@ document.addEventListener('DOMContentLoaded', () => {
         } catch (error) { console.error("Could not play start-up sound:", error); }
     });
 
-    stopBtn.addEventListener('click', () => {
-        if (!watchId) return;
-        navigator.geolocation.clearWatch(watchId);
-        watchId = null;
-        statusDiv.textContent = 'หยุดการติดตามแล้ว';
-        startBtn.disabled = false;
-        stopBtn.disabled = true;
-    });
+    // ในไฟล์ driver.js
+stopBtn.addEventListener('click', () => {
+    if (!watchId) return;
 
+    // หยุด GPS ก่อน
+    navigator.geolocation.clearWatch(watchId);
+    watchId = null;
+
+    // อัปเดต UI ทันที
+    statusDiv.textContent = 'กำลังหยุดระบบ...';
+    startBtn.disabled = true; // ปิดปุ่มไว้ก่อนจนกว่าจะสำเร็จ
+    stopBtn.disabled = true;
+
+    // --- [ใหม่] แจ้งเซิร์ฟเวอร์ว่าเราหยุดแล้ว ---
+    fetch('/api/stop-tracking', { method: 'POST' })
+        .then(res => res.json())
+        .then(data => {
+            if (data.success) {
+                statusDiv.textContent = 'หยุดการติดตามแล้ว';
+                startBtn.disabled = false;
+            } else {
+                throw new Error('Server failed to acknowledge stop.');
+            }
+        })
+        .catch(error => {
+            console.error('Failed to notify server of stop:', error);
+            statusDiv.textContent = 'หยุด GPS แล้ว แต่แจ้งเซิร์ฟเวอร์ไม่สำเร็จ';
+            startBtn.disabled = false;
+        });
+});
     // --- Initial Load ---
     initMap();
 });
