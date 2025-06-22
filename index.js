@@ -199,12 +199,12 @@ app.post('/api/update-live-location', async (req, res) => {
         let audioNotificationUrl = null; 
         let notifiedApproaching = false;
 
-        if (closestStop && minDistance < 20) {
+        if (closestStop && minDistance < 10) {
             statusMessage = `ถึงแล้ว: ${closestStop.name}`;
             if (!previousStatus.includes(statusMessage)) {
                 audioNotificationUrl = arrivalAudioMap[closestStop.name]; 
             }
-        } else if (closestStop && minDistance < 70) {
+        } else if (closestStop && minDistance < 40) {
             statusMessage = `กำลังเข้าใกล้ ${closestStop.name}`;
             notifiedApproaching = true;
             if (!hasBeenNotifiedApproaching) {
