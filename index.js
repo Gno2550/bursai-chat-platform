@@ -20,16 +20,12 @@ const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash-latest" });
 const TOTAL_ROOMS = 5;
 
+// --- "แผนที่เสียง" (Audio Map) ---
 const arrivalAudioMap = {
-    "BUS_STOP1": "https://cdn.glitch.global/4a2b378a-09fc-47bc-b98f-5ba993690b44/1-%E0%B8%96%E0%B8%B6%E0%B8%87%E0%B8%88%E0%B8%B8%E0%B8%94%E0%B8%88%E0%B8%AD%E0%B8%94%E0%B8%A3.mp3?v=1750519742261",
-    "BUS_STOP2": "https://cdn.glitch.global/4a2b378a-09fc-47bc-b98f-5ba993690b44/1-%E0%B8%96%E0%B8%B6%E0%B8%87%E0%B8%88%E0%B8%B3%E0%B8%94%E0%B8%88%E0%B8%AD%E0%B8%94%E0%B8%A3.mp3?v=1750519742261",
-    "BUS_STOP3": "https://cdn.glitch.global/4a2b378a-09fc-47bc-b98f-5ba993690b44/1-%E0%B8%96%E0%B8%B6%E0%B8%87%E0%B8%88%E0%B8%B3%E0%B8%94%E0%B8%88%E0%B8%AD%E0%B8%94%E0%B8%A3.mp3?v=1750519742261",
+    "BUS_STOP1": "YOUR_BUS_STOP_1_AUDIO_URL",
+    // เพิ่มป้ายอื่นๆ ของคุณที่นี่
 };
-const approachingAudioMap = {
-    "BUS_STOP1": "https://cdn.glitch.global/4a2b378a-09fc-47bc-b98f-5ba993690b44/2-%E0%B9%83%E0%B8%81%E0%B8%A5%E0%B9%89%E0%B8%96%E0%B8%B6%E0%B8%87%E0%B9%81%E0%B8%A5%E0%B9%89.mp3?v=1750572365692",
-    "BUS_STOP2": "https://cdn.glitch.global/4a2b378a-09fc-47bc-b98f-5ba993690b44/3-%E0%B9%83%E0%B8%81%E0%B8%A5%E0%B9%89%E0%B8%96%E0%B8%B6%E0%B8%87%E0%B9%81%E0%B8%A5%E0%B9%89.mp3?v=1750572215069",
-    "BUS_STOP3": "https://cdn.glitch.global/4a2b378a-09fc-47bc-b98f-5ba993690b44/4-ใกล้ถึงแล้ว 3.mp3?v=1750572333967",
-};
+
 
 const app = express();
 
@@ -169,7 +165,6 @@ app.delete('/api/delete-bus-stop/:id', async (req, res) => {
         res.status(500).json({ error: 'Failed to delete bus stop' });
     }
 });
-
 app.post('/api/update-live-location', async (req, res) => {
     try {
         const { latitude, longitude } = req.body;
@@ -196,10 +191,9 @@ app.post('/api/update-live-location', async (req, res) => {
         let statusMessage = "ระหว่างทาง";
         let distanceToNextStop = 0;
         let etaMinutes = 0;
-        let audioNotificationUrl = null;
-        let a = false;
-        
-        if (closestStop && minDistance < 10) {
+        let audioNotificationUrl = null; 
+
+        if (closestStop && minDistance < 20) {
             statusMessage = `ถึงแล้ว: ${closestStop.name}`;
             if (!previousStatus.includes(statusMessage)) {
                 audioNotificationUrl = arrivalAudioMap[closestStop.name]; 
@@ -208,7 +202,7 @@ app.post('/api/update-live-location', async (req, res) => {
                 await cartRef.update({ notifiedForStop: null });
             }
 
-        } else if (closestStop && minDistance < 55) {
+        } else if (closestStop && minDistance < 70) {
             statusMessage = `กำลังเข้าใกล้ ${closestStop.name}`;
             if (notifiedForStop !== closestStop.name) {
                 audioNotificationUrl = approachingAudioMap[closestStop.name];
@@ -273,6 +267,7 @@ app.post('/api/stop-tracking', async (req, res) => {
         res.status(500).json({ success: false, message: 'Failed to stop tracking.' });
     }
 });
+
 
 app.get('/api/dashboard/stats', async (req, res) => {
     try {
@@ -547,7 +542,7 @@ async function handleTextMessage(event) {
 function getDistanceFromLatLonInM(lat1, lon1, lat2, lon2) {
     const R = 6371e3; // Radius of the earth in meters
     const dLat = (lat2 - lat1) * (Math.PI / 180);
-    const dLon = (lon2 - lon1) * (Math.PI / 180); // **[แก้ไข]** แก้ไขจาก -1 เป็น -lon1
+    const dLon = (lon2 - lon1) * (Math.PI / 180);
     const a = 
         Math.sin(dLat / 2) * Math.sin(dLat / 2) +
         Math.cos(lat1 * (Math.PI / 180)) * Math.cos(lat2 * (Math.PI / 180)) * 
