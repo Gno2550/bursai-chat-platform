@@ -1,79 +1,64 @@
+// driver.js (เวอร์ชันแก้ไขระบบเสียงสมบูรณ์)
 document.addEventListener('DOMContentLoaded', () => {
-    // --- DOM Elements & Global Vars ---
+    // --- 1. DOM Elements & Global Variables ---
     const statusDiv = document.getElementById('status');
     const startBtn = document.getElementById('start-tracking');
     const stopBtn = document.getElementById('stop-tracking');
-    let watchId = null;
+    const notificationPlayer = document.getElementById('notification-player'); // Player หลัก
     const API_URL = '/api/update-live-location';
-
-    // --- **[แก้ไข]** ระบบจัดการเสียง ---
-    let isPlayingSequence = false; // ตัวแปรสำหรับ "ล็อก" การเล่นเสียง
-    const audioQueue = []; // คิวสำหรับเก็บ URL เสียงที่เข้ามาขณะกำลังเล่นเสียงอื่นอยู่
-
-    const notificationChimeUrl = "https://cdn.glitch.global/4a2b378a-09fc-47bc-b98f-5ba993690b44/chime.mp3?v=1750654848143"; // <-- **[สำคัญ]** แก้ไข URL นี้ให้ถูกต้อง
-
-    function playNextInQueue() {
-        if (audioQueue.length > 0) {
-            const nextSpeechUrl = audioQueue.shift(); // ดึง URL ถัดไปออกจากคิว
-            playNotificationSequence(nextSpeechUrl);
-        } else {
-            isPlayingSequence = false; // ถ้าคิวว่างแล้ว ให้ปลดล็อก
-        }
-    }
-
-    function playNotificationSequence(speechAudioUrl) {
-        if (!speechAudioUrl) return;
-
-        // ถ้ากำลังเล่นเสียงอยู่ ให้เอา URL ใหม่ไปต่อคิวไว้ก่อน (ป้องกันเสียงซ้อน)
-        if (isPlayingSequence) {
-            // เพื่อป้องกันการเพิ่ม URL เดียวกันซ้ำๆ เข้าไปในคิว
-            if (!audioQueue.includes(speechAudioUrl)) {
-                console.log("Audio sequence is busy. Queuing URL:", speechAudioUrl);
-                audioQueue.push(speechAudioUrl);
-            }
-            return;
-        }
-
-        // ถ้าไม่ได้เล่นอยู่ ให้เริ่มเล่นและ "ล็อก" ระบบ
-        isPlayingSequence = true;
-        console.log("Starting new audio sequence for:", speechAudioUrl);
-
-        const chimeSound = new Audio(notificationChimeUrl);
-        const speechSound = new Audio(speechAudioUrl);
-
-        chimeSound.play().catch(e => {
-            console.error("Error playing chime sound:", e);
-            playNextInQueue(); // ถ้าเสียง Chime พลาด ให้ข้ามไปเล่นเสียงถัดไปในคิว
-        });
-
-        chimeSound.addEventListener('ended', () => {
-            console.log("Chime finished, playing speech...");
-            speechSound.play().catch(e => {
-                console.error("Error playing speech sound:", e);
-                playNextInQueue(); // ถ้าเสียงพูดพลาด ให้ข้ามไปเล่นเสียงถัดไปในคิว
-            });
-        });
-
-        speechSound.addEventListener('ended', () => {
-            console.log("Speech finished. Checking queue...");
-            playNextInQueue(); // เมื่อเสียงพูดจบ ให้ตรวจสอบว่ามีเสียงอื่นในคิวหรือไม่
-        });
-
-        // จัดการ Error กรณีโหลดเสียงไม่สำเร็จ
-        chimeSound.addEventListener('error', () => playNextInQueue());
-        speechSound.addEventListener('error', () => playNextInQueue());
-    }
-    // --- สิ้นสุดการแก้ไขระบบจัดการเสียง ---
-
-
-    // --- Leaflet Map Setup ---
+    let watchId = null;
     let map;
     let driverMarker = null;
-    const driverIcon = L.icon({ iconUrl: 'https://cdn.glitch.global/4a2b378a-09fc-47bc-b98f-5ba993690b44/bugo-logo2.png?v=1750575455756', iconSize: [55, 55] });
+    
+    // --- 2. Asset URLs ---
+    const driverIcon = L.icon({ iconUrl: 'https://cdn.glitch.global/4a2b378a-09fc-47bc-b98f-5ba993690b44/bugo-logo2.png?v=1750575455756', iconSize: [55, 60] });
     const stopIcon = L.icon({ iconUrl: 'https://cdn.glitch.global/4a2b378a-09fc-47bc-b98f-5ba993690b44/icons8-bus-stop-96.png?v=1750447498203', iconSize: [35, 35] });
     const startupAudioUrl = "https://cdn.glitch.global/4a2b378a-09fc-47bc-b98f-5ba993690b44/0-%E0%B9%80%E0%B8%A3%E0%B8%B4%E0%B9%88%E0%B8%A1%E0%B8%81%E0%B8%B2%E0%B8%A3%E0%B8%95%E0%B8%B4.mp3?v=1750521728365";
-    
+    const notificationChimeUrl = "https://cdn.glitch.global/4a2b378a-09fc-47bc-b98f-5ba993690b44/chime.mp3?v=1750654848143";
 
+    // --- 3. Robust Audio Management System ---
+    let isPlaying = false;
+    const audioQueue = [];
+
+    function playFromQueue() {
+        if (isPlaying || audioQueue.length === 0) {
+            return; // ถ้ากำลังเล่นอยู่ หรือคิวว่าง ให้หยุด
+        }
+
+        isPlaying = true;
+        const nextUrl = audioQueue.shift(); // ดึงเสียงถัดไปออกจากคิว
+        console.log("Now playing from queue:", nextUrl);
+        
+        notificationPlayer.src = nextUrl;
+        notificationPlayer.play().catch(e => {
+            console.error("Playback Error:", e);
+            isPlaying = false; // ปลดล็อกถ้าเล่นไม่ได้
+            playFromQueue(); // พยายามเล่นเสียงถัดไป
+        });
+    }
+
+    notificationPlayer.addEventListener('ended', () => {
+        console.log("Audio finished playing.");
+        isPlaying = false;
+        playFromQueue(); // เมื่อเล่นจบ ให้เล่นเสียงถัดไปในคิว
+    });
+    
+    notificationPlayer.addEventListener('error', () => {
+        console.error("An error occurred with the audio player.");
+        isPlaying = false;
+        playFromQueue();
+    });
+
+    function queueSound(speechUrl) {
+        if (!speechUrl) return;
+        // เพิ่มเสียงสัญญาณนำก่อนเสมอ
+        audioQueue.push(notificationChimeUrl);
+        audioQueue.push(speechUrl);
+        console.log("Queued sounds. Current queue:", audioQueue);
+        playFromQueue(); // เริ่มเล่นทันทีถ้า Player ว่างอยู่
+    }
+
+    // --- 4. Map & Core Logic Functions ---
     function initMap() {
         map = L.map('map').setView([13.9615, 100.6230], 18);
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
@@ -95,7 +80,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // --- Core Functions ---
     function updateLocation(position) {
         const { latitude, longitude } = position.coords;
 
@@ -122,7 +106,8 @@ document.addEventListener('DOMContentLoaded', () => {
             if (data.success) {
                 statusDiv.textContent = `ส่งตำแหน่งล่าสุดแล้ว!`;
                 if (data.audioUrl) {
-                    playNotificationSequence(data.audioUrl);
+                    // เรียกใช้ฟังก์ชันใหม่เพื่อเอาเสียงไปต่อคิว
+                    queueSound(data.audioUrl);
                 }
             } else { throw new Error(data.message); }
         })
@@ -133,9 +118,18 @@ document.addEventListener('DOMContentLoaded', () => {
         statusDiv.textContent = `GPS Error: ${error.message}`;
     }
 
-    // --- Event Listeners ---
+    // --- 5. Event Listeners ---
     startBtn.addEventListener('click', () => {
         if (watchId) return;
+
+        // **[สำคัญ]** ปลดล็อก Audio Context
+        // สร้าง AudioContext และเล่นเสียงว่างๆ เพื่อให้แน่ใจว่าเบราว์เซอร์พร้อมเล่นเสียง
+        // ทำแค่ครั้งแรกที่ผู้ใช้คลิก
+        if (notificationPlayer.paused) {
+           notificationPlayer.play().catch(() => {});
+           notificationPlayer.pause();
+           console.log("Audio player unlocked by user interaction.");
+        }
 
         watchId = navigator.geolocation.watchPosition(updateLocation, handleError, {
             enableHighAccuracy: true, timeout: 10000, maximumAge: 0
@@ -145,15 +139,14 @@ document.addEventListener('DOMContentLoaded', () => {
         startBtn.disabled = true;
         stopBtn.disabled = false;
         
-        playNotificationSequence(startupAudioUrl);
+        // เอาเสียงเริ่มต้นไปต่อคิว
+        queueSound(startupAudioUrl);
     });
 
     stopBtn.addEventListener('click', () => {
         if (!watchId) return;
-
         navigator.geolocation.clearWatch(watchId);
         watchId = null;
-
         statusDiv.textContent = 'กำลังหยุดระบบ...';
         startBtn.disabled = true; 
         stopBtn.disabled = true;
@@ -164,9 +157,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (data.success) {
                     statusDiv.textContent = 'หยุดการติดตามแล้ว';
                     startBtn.disabled = false;
-                } else {
-                    throw new Error('Server failed to acknowledge stop.');
-                }
+                } else { throw new Error('Server failed to acknowledge stop.'); }
             })
             .catch(error => {
                 console.error('Failed to notify server of stop:', error);
@@ -175,6 +166,6 @@ document.addEventListener('DOMContentLoaded', () => {
             });
     });
 
-    // --- Initial Load ---
+    // --- 6. Initial Load ---
     initMap();
 });

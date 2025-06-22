@@ -1,23 +1,20 @@
-require("cross-fetch/polyfill");
+require('cross-fetch/polyfill');
 
-("use strict");
-require("dotenv").config();
-const express = require("express");
-const line = require("@line/bot-sdk");
-const admin = require("firebase-admin");
-const jwt = require("jsonwebtoken");
-const QRCode = require("qrcode");
-const { GoogleGenerativeAI } = require("@google/generative-ai");
-const bcrypt = require("bcryptjs");
+'use strict';
+require('dotenv').config();
+const express = require('express');
+const line = require('@line/bot-sdk');
+const admin = require('firebase-admin');
+const jwt = require('jsonwebtoken'); 
+const QRCode = require('qrcode');
+const { GoogleGenerativeAI } = require('@google/generative-ai');
+const bcrypt = require('bcryptjs'); 
 
 // --- Initializations ---
-const serviceAccount = require("./serviceAccountKey.json");
+const serviceAccount = require('./serviceAccountKey.json');
 admin.initializeApp({ credential: admin.credential.cert(serviceAccount) });
 const db = admin.firestore();
-const config = {
-  channelAccessToken: process.env.CHANNEL_ACCESS_TOKEN,
-  channelSecret: process.env.CHANNEL_SECRET,
-};
+const config = { channelAccessToken: process.env.CHANNEL_ACCESS_TOKEN, channelSecret: process.env.CHANNEL_SECRET };
 const client = new line.Client(config);
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash-latest" });
@@ -25,34 +22,23 @@ const TOTAL_ROOMS = 5;
 
 // --- "แผนที่เสียง" (Audio Map) ---
 const arrivalAudioMap = {
-  BUS_STOP1:
-    "https://cdn.glitch.global/4a2b378a-09fc-47bc-b98f-5ba993690b44/1-%E0%B8%96%E0%B8%B6%E0%B8%87%E0%B8%88%E0%B8%B8%E0%B8%94%E0%B8%88%E0%B8%AD%E0%B8%94%E0%B8%A3.mp3?v=1750519742261",
-  BUS_STOP2:
-    "https://cdn.glitch.global/4a2b378a-09fc-47bc-b98f-5ba993690b44/1-%E0%B8%96%E0%B8%B6%E0%B8%87%E0%B8%88%E0%B8%B3%E0%B8%94%E0%B8%88%E0%B8%AD%E0%B8%94%E0%B8%A3.mp3?v=1750519742261",
-  BUS_STOP3:
-    "https://cdn.glitch.global/4a2b378a-09fc-47bc-b98f-5ba993690b44/1-%E0%B8%96%E0%B8%B6%E0%B8%87%E0%B8%88%E0%B8%B3%E0%B8%94%E0%B8%88%E0%B8%AD%E0%B8%94%E0%B8%A3.mp3?v=1750519742261",
+    "BUS_STOP1": "https://cdn.glitch.global/4a2b378a-09fc-47bc-b98f-5ba993690b44/1-%E0%B8%96%E0%B8%B6%E0%B8%87%E0%B8%88%E0%B8%B8%E0%B8%94%E0%B8%88%E0%B8%AD%E0%B8%94%E0%B8%A3.mp3?v=1750519742261",
+    "BUS_STOP2": "https://cdn.glitch.global/4a2b378a-09fc-47bc-b98f-5ba993690b44/1-%E0%B8%96%E0%B8%B6%E0%B8%87%E0%B8%88%E0%B8%B3%E0%B8%94%E0%B8%88%E0%B8%AD%E0%B8%94%E0%B8%A3.mp3?v=1750519742261",
+    "BUS_STOP3": "https://cdn.glitch.global/4a2b378a-09fc-47bc-b98f-5ba993690b44/1-%E0%B8%96%E0%B8%B6%E0%B8%87%E0%B8%88%E0%B8%B3%E0%B8%94%E0%B8%88%E0%B8%AD%E0%B8%94%E0%B8%A3.mp3?v=1750519742261",
 };
+// **[แก้ไข]** เพิ่ม approachingAudioMap ที่หายไปกลับเข้ามา
 const approachingAudioMap = {
-  BUS_STOP1:
-    "https://cdn.glitch.global/4a2b378a-09fc-47bc-b98f-5ba993690b44/2-%E0%B9%83%E0%B8%81%E0%B8%A5%E0%B9%89%E0%B8%96%E0%B8%B6%E0%B8%87%E0%B9%81%E0%B8%A5%E0%B9%89.mp3?v=1750572365692",
-  BUS_STOP2:
-    "https://cdn.glitch.global/4a2b378a-09fc-47bc-b98f-5ba993690b44/3-%E0%B9%83%E0%B8%81%E0%B8%A5%E0%B9%89%E0%B8%96%E0%B8%B6%E0%B8%87%E0%B9%81%E0%B8%A5%E0%B9%89.mp3?v=1750572215069",
-  BUS_STOP3:
-    "https://cdn.glitch.global/4a2b378a-09fc-47bc-b98f-5ba993690b44/4-ใกล้ถึงแล้ว 3.mp3?v=1750572333967",
+    "BUS_STOP1": "https://cdn.glitch.global/4a2b378a-09fc-47bc-b98f-5ba993690b44/2-%E0%B9%83%E0%B8%81%E0%B8%A5%E0%B9%89%E0%B8%96%E0%B8%B6%E0%B8%87%E0%B9%81%E0%B8%A5%E0%B9%89.mp3?v=1750572365692",
+    "BUS_STOP2": "https://cdn.glitch.global/4a2b378a-09fc-47bc-b98f-5ba993690b44/3-%E0%B9%83%E0%B8%81%E0%B8%A5%E0%B9%89%E0%B8%96%E0%B8%B6%E0%B8%87%E0%B9%81%E0%B8%A5%E0%B9%89.mp3?v=1750572215069",
+    "BUS_STOP3": "https://cdn.glitch.global/4a2b378a-09fc-47bc-b98f-5ba993690b44/4-ใกล้ถึงแล้ว 3.mp3?v=1750572333967",
 };
+
 
 const app = express();
 
 // --- Middleware & Routes ---
-app.use(express.static("public"));
-app.post("/webhook", line.middleware(config), (req, res) => {
-  Promise.all(req.body.events.map(handleEvent))
-    .then((result) => res.json(result))
-    .catch((err) => {
-      console.error("Webhook Error:", err);
-      res.status(500).end();
-    });
-});
+app.use(express.static('public'));
+app.post('/webhook', line.middleware(config), (req, res) => { Promise.all(req.body.events.map(handleEvent)).then((result) => res.json(result)).catch((err) => { console.error("Webhook Error:", err); res.status(500).end(); }); });
 app.use(express.json());
 
 // --- Staff API Routes ---
@@ -286,109 +272,91 @@ app.delete("/api/delete-bus-stop/:id", async (req, res) => {
     res.status(500).json({ error: "Failed to delete bus stop" });
   }
 });
-app.post("/api/update-live-location", async (req, res) => {
-  try {
-    const { latitude, longitude } = req.body;
-    if (!latitude || !longitude) {
-      return res
-        .status(400)
-        .json({ success: false, message: "Invalid location data" });
-    }
+app.post('/api/update-live-location', async (req, res) => {
+    try {
+        const { latitude, longitude } = req.body;
+        if (!latitude || !longitude) { return res.status(400).json({ success: false, message: 'Invalid location data' }); }
+        
+        const cartRef = db.collection('golf_carts').doc('cart_01');
+        const cartDoc = await cartRef.get();
+        const currentCartData = cartDoc.exists ? cartDoc.data() : {};
+        const previousStatus = currentCartData.status || '';
+        const notifiedForStop = currentCartData.notifiedForStop || null;
 
-    const cartRef = db.collection("golf_carts").doc("cart_01");
-    const cartDoc = await cartRef.get();
-    const currentCartData = cartDoc.exists ? cartDoc.data() : {};
-    const previousStatus = currentCartData.status || "";
-    const notifiedForStop = currentCartData.notifiedForStop || null;
-
-    const stopsSnapshot = await db
-      .collection("bus_stops")
-      .orderBy("name")
-      .get();
-    const stops = stopsSnapshot.docs.map((doc) => ({
-      id: doc.id,
-      ...doc.data(),
-    }));
-
-    let closestStop = null;
-    let minDistance = Infinity;
-    if (stops.length > 0) {
-      stops.forEach((stop) => {
-        const distance = getDistanceFromLatLonInM(
-          latitude,
-          longitude,
-          stop.location.latitude,
-          stop.location.longitude
-        );
-        if (distance < minDistance) {
-          minDistance = distance;
-          closestStop = stop;
+        const stopsSnapshot = await db.collection('bus_stops').orderBy('name').get();
+        const stops = stopsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        
+        let closestStop = null;
+        let minDistance = Infinity;
+        if (stops.length > 0) {
+            stops.forEach(stop => {
+                const distance = getDistanceFromLatLonInM(latitude, longitude, stop.location.latitude, stop.location.longitude);
+                if (distance < minDistance) { minDistance = distance; closestStop = stop; }
+            });
         }
-      });
-    }
+        
+        let statusMessage = "ระหว่างทาง";
+        let distanceToNextStop = 0;
+        let etaMinutes = 0;
+        let audioNotificationUrl = null; 
 
-    let statusMessage = "ระหว่างทาง";
-    let distanceToNextStop = 0;
-    let etaMinutes = 0;
-    let audioNotificationUrl = null;
+        if (closestStop && minDistance < 20) {
+            statusMessage = `ถึงแล้ว: ${closestStop.name}`;
+            if (!previousStatus.includes(statusMessage)) {
+                audioNotificationUrl = arrivalAudioMap[closestStop.name]; 
+            }
+            if (notifiedForStop) {
+                await cartRef.update({ notifiedForStop: null });
+            }
 
-    if (closestStop && minDistance < 20) {
-      statusMessage = `ถึงแล้ว: ${closestStop.name}`;
-      if (!previousStatus.includes(statusMessage)) {
-        audioNotificationUrl = arrivalAudioMap[closestStop.name];
-      }
-      if (notifiedForStop) {
-        await cartRef.update({ notifiedForStop: null });
-      }
-    } else if (closestStop && minDistance < 70) {
-      statusMessage = `กำลังเข้าใกล้ ${closestStop.name}`;
-      if (notifiedForStop !== closestStop.name) {
-        audioNotificationUrl = approachingAudioMap[closestStop.name];
-        await cartRef.update({ notifiedForStop: closestStop.name });
-      }
-    } else if (closestStop) {
-      statusMessage = `กำลังมุ่งหน้าไป ${closestStop.name}`;
-      if (previousStatus.startsWith("ถึงแล้ว:")) {
-        await cartRef.update({ notifiedForStop: null });
-      }
-      try {
-        const osrmUrl = `https://router.project-osrm.org/route/v1/driving/${longitude},${latitude};${closestStop.location.longitude},${closestStop.location.latitude}`;
-        const osrmResponse = await fetch(osrmUrl);
-        const routeData = await osrmResponse.json();
-        if (routeData.code === "Ok" && routeData.routes.length > 0) {
-          const route = routeData.routes[0];
-          distanceToNextStop = route.distance;
-          etaMinutes = route.duration / 60;
-        } else {
-          distanceToNextStop = minDistance;
-          etaMinutes = minDistance / ((15 * 1000) / 3600) / 60;
+        } else if (closestStop && minDistance < 70) {
+            statusMessage = `กำลังเข้าใกล้ ${closestStop.name}`;
+            if (notifiedForStop !== closestStop.name) {
+                audioNotificationUrl = approachingAudioMap[closestStop.name];
+                await cartRef.update({ notifiedForStop: closestStop.name });
+            }
+            
+        } else if (closestStop) {
+            statusMessage = `กำลังมุ่งหน้าไป ${closestStop.name}`;
+            if (previousStatus.startsWith('ถึงแล้ว:')) {
+                await cartRef.update({ notifiedForStop: null });
+            }
+            try {
+                const osrmUrl = `https://router.project-osrm.org/route/v1/driving/${longitude},${latitude};${closestStop.location.longitude},${closestStop.location.latitude}`;
+                const osrmResponse = await fetch(osrmUrl);
+                const routeData = await osrmResponse.json();
+                if (routeData.code === 'Ok' && routeData.routes.length > 0) {
+                    const route = routeData.routes[0];
+                    distanceToNextStop = route.distance;
+                    etaMinutes = route.duration / 60;
+                } else {
+                    distanceToNextStop = minDistance;
+                    etaMinutes = (minDistance / ((15 * 1000) / 3600)) / 60;
+                }
+            } catch (osrmError) {
+                console.error("OSRM API Error:", osrmError);
+                statusMessage = "ไม่สามารถเชื่อมต่อระบบนำทางได้";
+            }
         }
-      } catch (osrmError) {
-        console.error("OSRM API Error:", osrmError);
-        statusMessage = "ไม่สามารถเชื่อมต่อระบบนำทางได้";
-      }
+        
+        await cartRef.set({ 
+            location: new admin.firestore.GeoPoint(latitude, longitude), 
+            status: statusMessage, 
+            distanceToNextStop: distanceToNextStop, 
+            etaMinutes: etaMinutes, 
+            lastUpdate: new Date()
+        }, { merge: true });
+        
+        res.json({ 
+            success: true, 
+            message: 'Location updated',
+            audioUrl: audioNotificationUrl 
+        });
+
+    } catch (error) {
+        console.error("Update Live Location Error:", error);
+        res.status(500).json({ success: false, message: 'Server error' });
     }
-
-    await cartRef.set(
-      {
-        location: new admin.firestore.GeoPoint(latitude, longitude),
-        status: statusMessage,
-        distanceToNextStop: distanceToNextStop,
-        etaMinutes: etaMinutes,
-        lastUpdate: new Date(),
-      },
-      { merge: true }
-    );
-
-    res.json({
-      success: true,
-      message: "Location updated",
-      audioUrl: audioNotificationUrl,
-    });
-  } catch (error) {
-    console.error("Update Live Location Error:", error);
-    res.status(500).json({ success: false, message: "Server error" });
-  }
 });
 
 app.post("/api/stop-tracking", async (req, res) => {

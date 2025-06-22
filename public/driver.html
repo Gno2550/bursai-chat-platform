@@ -6,7 +6,7 @@
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <style>
         html, body { height: 100%; margin: 0; padding: 0; font-family: sans-serif; display: flex; flex-direction: column; }
-        #map { flex-grow: 1; /* ทำให้แผนที่ขยายเต็มพื้นที่ */ }
+        #map { flex-grow: 1; }
         #controls { padding: 10px; background-color: #f4f4f4; text-align: center; border-top: 1px solid #ddd; }
         button { padding: 15px 25px; font-size: 1.2em; cursor: pointer; margin: 5px; border-radius: 8px; border: none; }
         #start-tracking { background-color: #28a745; color: white; }
@@ -22,8 +22,11 @@
         <div id="status">สถานะ: ปิดอยู่</div>
     </div>
 
+    <!-- **[เพิ่ม]** Audio Player ที่ซ่อนไว้ -->
+    <audio id="notification-player" style="display:none;"></audio>
+
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <script src="/moving-marker.js"></script> <!-- ถ้าคุณใช้วิธีรวมไฟล์ -->
+    <script src="/moving-marker.js"></script> 
     <script src="driver.js"></script>
 </body>
 </html>
