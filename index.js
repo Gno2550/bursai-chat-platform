@@ -25,9 +25,16 @@ const arrivalAudioMap = {
     "BUS_STOP1": "https://cdn.glitch.global/4a2b378a-09fc-47bc-b98f-5ba993690b44/1-%E0%B8%96%E0%B8%B6%E0%B8%87%E0%B8%88%E0%B8%B8%E0%B8%94%E0%B8%88%E0%B8%AD%E0%B8%94%E0%B8%A3.mp3?v=1750519742261",
     "BUS_STOP2": "https://cdn.glitch.global/4a2b378a-09fc-47bc-b98f-5ba993690b44/1-%E0%B8%96%E0%B8%B6%E0%B8%87%E0%B8%88%E0%B8%B8%E0%B8%94%E0%B8%88%E0%B8%AD%E0%B8%94%E0%B8%A3.mp3?v=1750519742261",
     "BUS_STOP3": "https://cdn.glitch.global/4a2b378a-09fc-47bc-b98f-5ba993690b44/1-%E0%B8%96%E0%B8%B6%E0%B8%87%E0%B8%88%E0%B8%B8%E0%B8%94%E0%B8%88%E0%B8%AD%E0%B8%94%E0%B8%A3.mp3?v=1750519742261",
-    "BUS_STOP4": "https://cdn.glitch.global/4a2b378a-09fc-47bc-b98f-5ba993690b44/1-%E0%B8%96%E0%B8%B6%E0%B8%87%E0%B8%88%E0%B8%B8%E0%B8%94%E0%B8%88%E0%B8%AD%E0%B8%94%E0%B8%A3.mp3?v=1750519742261",
   // เพิ่มป้ายอื่นๆ ของคุณที่นี่
 };
+const approachingAudioMap = {
+    "BUS_STOP1": "YOUR_URL_FOR_APPROACHING_BUS_STOP_1.mp3",
+    "BUS_STOP2": "YOUR_URL_FOR_APPROACHING_BUS_STOP_2.mp3",
+    "BUS_STOP3": "YOUR_URL_FOR_APPROACHING_BUS_STOP_2.mp3",
+    "BUS_STOP4": "YOUR_URL_FOR_APPROACHING_BUS_STOP_2.mp3",
+    // เพิ่มให้ครบทุกป้าย
+};
+
 
 
 const app = express();
