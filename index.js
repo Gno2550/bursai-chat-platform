@@ -319,6 +319,12 @@ app.post('/api/update-live-location', async (req, res) => {
         } else if (closestStop) {
             statusMessage = `กำลังมุ่งหน้าไป ${closestStop.name}`;
             if (previousStatus.startsWith('ถึงแล้ว:')) {
+                const departedStopName = previousStatus.replace('ถึงแล้ว: ', '');
+                const lastDepartureQuery = await db.collection('travel_logs').where('origin', '==', departedStopName).where('status', '==', 'DEPARTED').orderBy('departureTime', 'desc').limit(1).get();
+                if (lastDepartureQuery.empty) {
+                    await db.collection('travel_logs').add({ cartId: 'cart_01', status: 'DEPARTED', origin: departedStopName, departureTime: new Date() });
+                    console.log(`Travel log DEPARTED from: ${departedStopName}`);
+                }
                 await cartRef.update({ notifiedForStop: null });
             }
             try {
@@ -359,6 +365,7 @@ app.post('/api/update-live-location', async (req, res) => {
     }
 });
 
+
 app.post("/api/stop-tracking", async (req, res) => {
   try {
     const cartRef = db.collection("golf_carts").doc("cart_01");
@@ -371,9 +378,7 @@ app.post("/api/stop-tracking", async (req, res) => {
     res.json({ success: true, message: "Tracking stopped successfully." });
   } catch (error) {
     console.error("Stop Tracking API Error:", error);
-    res
-      .status(500)
-      .json({ success: false, message: "Failed to stop tracking." });
+    res.status(500).json({ success: false, message: "Failed to stop tracking." });
   }
 });
 
