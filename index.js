@@ -29,7 +29,6 @@ const approachingAudioMap = {
     "BUS_STOP1": "https://cdn.glitch.global/4a2b378a-09fc-47bc-b98f-5ba993690b44/2-%E0%B9%83%E0%B8%81%E0%B8%A5%E0%B9%89%E0%B8%96%E0%B8%B6%E0%B8%87%E0%B9%81%E0%B8%A5%E0%B9%89.mp3?v=1750572365692",
     "BUS_STOP2": "https://cdn.glitch.global/4a2b378a-09fc-47bc-b98f-5ba993690b44/3-%E0%B9%83%E0%B8%81%E0%B8%A5%E0%B9%89%E0%B8%96%E0%B8%B6%E0%B8%87%E0%B9%81%E0%B8%A5%E0%B9%89.mp3?v=1750572215069",
     "BUS_STOP3": "https://cdn.glitch.global/4a2b378a-09fc-47bc-b98f-5ba993690b44/4-ใกล้ถึงแล้ว 3.mp3?v=1750572333967",
-    // เพิ่มให้ครบทุกป้าย
 };
 
 const app = express();
@@ -170,6 +169,7 @@ app.delete('/api/delete-bus-stop/:id', async (req, res) => {
         res.status(500).json({ error: 'Failed to delete bus stop' });
     }
 });
+
 app.post('/api/update-live-location', async (req, res) => {
     try {
         const { latitude, longitude } = req.body;
@@ -179,7 +179,7 @@ app.post('/api/update-live-location', async (req, res) => {
         const cartDoc = await cartRef.get();
         const currentCartData = cartDoc.exists ? cartDoc.data() : {};
         const previousStatus = currentCartData.status || '';
-        const hasBeenNotifiedApproaching = currentCartData.notifiedApproaching || false;
+        const notifiedForStop = currentCartData.notifiedForStop || null;
 
         const stopsSnapshot = await db.collection('bus_stops').orderBy('name').get();
         const stops = stopsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
@@ -197,33 +197,37 @@ app.post('/api/update-live-location', async (req, res) => {
         let distanceToNextStop = 0;
         let etaMinutes = 0;
         let audioNotificationUrl = null; 
-        let notifiedApproaching = false;
-        let soundstatus = 0;
         
-        if (closestStop && minDistance < 20) {
+        if (closestStop && minDistance < 20) { 
             statusMessage = `ถึงแล้ว: ${closestStop.name}`;
             if (!previousStatus.includes(statusMessage)) {
-              audioNotificationUrl = arrivalAudioMap[closestStop.name]; 
+                audioNotificationUrl = arrivalAudioMap[closestStop.name]; 
             }
-        } else if (closestStop && minDistance < 50) {
+            if (notifiedForStop) {
+                await cartRef.update({ notifiedForStop: null });
+            }
+
+        } else if (closestStop && minDistance < 65) { 
             statusMessage = `กำลังเข้าใกล้ ${closestStop.name}`;
-            notifiedApproaching = true;
-            if (!hasBeenNotifiedApproaching) {
+            if (notifiedForStop !== closestStop.name) {
                 audioNotificationUrl = approachingAudioMap[closestStop.name];
+                await cartRef.update({ notifiedForStop: closestStop.name });
             }
-        } else if (closestStop) {
+            
+        } else if (closestStop) { // กรณีที่ 3: กำลังเดินทาง (ไกล)
+            statusMessage = `กำลังมุ่งหน้าไป ${closestStop.name}`;
+            if (previousStatus.startsWith('ถึงแล้ว:')) {
+                await cartRef.update({ notifiedForStop: null });
+            }
             try {
                 const osrmUrl = `https://router.project-osrm.org/route/v1/driving/${longitude},${latitude};${closestStop.location.longitude},${closestStop.location.latitude}`;
                 const osrmResponse = await fetch(osrmUrl);
                 const routeData = await osrmResponse.json();
-
                 if (routeData.code === 'Ok' && routeData.routes.length > 0) {
                     const route = routeData.routes[0];
                     distanceToNextStop = route.distance;
                     etaMinutes = route.duration / 60;
-                    statusMessage = `กำลังมุ่งหน้าไป ${closestStop.name}`;
                 } else {
-                    statusMessage = `กำลังคำนวณเส้นทางไป ${closestStop.name}...`;
                     distanceToNextStop = minDistance;
                     etaMinutes = (minDistance / ((15 * 1000) / 3600)) / 60;
                 }
@@ -238,7 +242,6 @@ app.post('/api/update-live-location', async (req, res) => {
             status: statusMessage, 
             distanceToNextStop: distanceToNextStop, 
             etaMinutes: etaMinutes, 
-            notifiedApproaching: notifiedApproaching,
             lastUpdate: new Date()
         }, { merge: true });
         
@@ -259,7 +262,8 @@ app.post('/api/stop-tracking', async (req, res) => {
         const cartRef = db.collection('golf_carts').doc('cart_01');
         await cartRef.update({
             status: 'คนขับออฟไลน์',
-            lastUpdate: new Date()
+            lastUpdate: new Date(),
+            notifiedForStop: null 
         });
         console.log("Driver cart_01 has stopped tracking.");
         res.json({ success: true, message: 'Tracking stopped successfully.' });
@@ -268,7 +272,6 @@ app.post('/api/stop-tracking', async (req, res) => {
         res.status(500).json({ success: false, message: 'Failed to stop tracking.' });
     }
 });
-
 
 app.get('/api/dashboard/stats', async (req, res) => {
     try {
