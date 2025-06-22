@@ -1,6 +1,3 @@
-
-
-
 require('cross-fetch/polyfill');
 
 'use strict';
@@ -27,6 +24,7 @@ const arrivalAudioMap = {
     "BUS_STOP1": "https://cdn.glitch.global/4a2b378a-09fc-47bc-b98f-5ba993690b44/1-%E0%B8%96%E0%B8%B6%E0%B8%87%E0%B8%88%E0%B8%B8%E0%B8%94%E0%B8%88%E0%B8%AD%E0%B8%94%E0%B8%A3.mp3?v=1750519742261",
     "BUS_STOP2": "https://cdn.glitch.global/4a2b378a-09fc-47bc-b98f-5ba993690b44/1-%E0%B8%96%E0%B8%B6%E0%B8%87%E0%B8%88%E0%B8%B8%E0%B8%94%E0%B8%88%E0%B8%AD%E0%B8%94%E0%B8%A3.mp3?v=1750519742261",
     "BUS_STOP3": "https://cdn.glitch.global/4a2b378a-09fc-47bc-b98f-5ba993690b44/1-%E0%B8%96%E0%B8%B6%E0%B8%87%E0%B8%88%E0%B8%B8%E0%B8%94%E0%B8%88%E0%B8%AD%E0%B8%94%E0%B8%A3.mp3?v=1750519742261",
+    "BUS_STOP4": "https://cdn.glitch.global/4a2b378a-09fc-47bc-b98f-5ba993690b44/1-%E0%B8%96%E0%B8%B6%E0%B8%87%E0%B8%88%E0%B8%B8%E0%B8%94%E0%B8%88%E0%B8%AD%E0%B8%94%E0%B8%A3.mp3?v=1750519742261",
   // เพิ่มป้ายอื่นๆ ของคุณที่นี่
 };
 const approachingAudioMap = {
@@ -183,6 +181,7 @@ app.post('/api/update-live-location', async (req, res) => {
         const cartDoc = await cartRef.get();
         const currentCartData = cartDoc.exists ? cartDoc.data() : {};
         const previousStatus = currentCartData.status || '';
+        const hasBeenNotifiedApproaching = currentCartData.notifiedApproaching || false;
 
         const stopsSnapshot = await db.collection('bus_stops').orderBy('name').get();
         const stops = stopsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
@@ -197,36 +196,51 @@ app.post('/api/update-live-location', async (req, res) => {
         }
         
         let statusMessage = "ระหว่างทาง";
+        let distanceToNextStop = 0;
         let etaMinutes = 0;
-        let nextStopLocation = null;
         let audioNotificationUrl = null; 
-        
+        let notifiedApproaching = false;
+
         if (closestStop && minDistance < 20) {
             statusMessage = `ถึงแล้ว: ${closestStop.name}`;
-            
-            if (!previousStatus.includes(closestStop.name)) {
+            if (!previousStatus.includes(statusMessage)) {
                 audioNotificationUrl = arrivalAudioMap[closestStop.name]; 
-                if (audioNotificationUrl) {
-                    console.log(`Found pre-generated audio for ${closestStop.name}: ${audioNotificationUrl}`);
-                } else {
-                    console.warn(`Audio URL not found in arrivalAudioMap for stop: ${closestStop.name}`);
-                }
+            }
+        } else if (closestStop && minDistance < 70) {
+            statusMessage = `กำลังเข้าใกล้ ${closestStop.name}`;
+            notifiedApproaching = true;
+            if (!hasBeenNotifiedApproaching) {
+                audioNotificationUrl = approachingAudioMap[closestStop.name];
             }
         } else if (closestStop) {
-            const AVERAGE_SPEED_KMPH = 15;
-            const speedMps = (AVERAGE_SPEED_KMPH * 1000) / 3600;
-            etaMinutes = (minDistance / speedMps) / 60;
-            statusMessage = `กำลังมุ่งหน้าไป ${closestStop.name}`;
-            nextStopLocation = closestStop.location;
+            try {
+                const osrmUrl = `https://router.project-osrm.org/route/v1/driving/${longitude},${latitude};${closestStop.location.longitude},${closestStop.location.latitude}`;
+                const osrmResponse = await fetch(osrmUrl);
+                const routeData = await osrmResponse.json();
+
+                if (routeData.code === 'Ok' && routeData.routes.length > 0) {
+                    const route = routeData.routes[0];
+                    distanceToNextStop = route.distance;
+                    etaMinutes = route.duration / 60;
+                    statusMessage = `กำลังมุ่งหน้าไป ${closestStop.name}`;
+                } else {
+                    statusMessage = `กำลังคำนวณเส้นทางไป ${closestStop.name}...`;
+                    distanceToNextStop = minDistance;
+                    etaMinutes = (minDistance / ((15 * 1000) / 3600)) / 60;
+                }
+            } catch (osrmError) {
+                console.error("OSRM API Error:", osrmError);
+                statusMessage = "ไม่สามารถเชื่อมต่อระบบนำทางได้";
+            }
         }
         
         await cartRef.set({ 
             location: new admin.firestore.GeoPoint(latitude, longitude), 
             status: statusMessage, 
-            distanceToNextStop: minDistance, 
+            distanceToNextStop: distanceToNextStop, 
             etaMinutes: etaMinutes, 
-            lastUpdate: new Date(),
-            nextStopLocation: nextStopLocation
+            notifiedApproaching: notifiedApproaching,
+            lastUpdate: new Date()
         }, { merge: true });
         
         res.json({ 
@@ -240,6 +254,22 @@ app.post('/api/update-live-location', async (req, res) => {
         res.status(500).json({ success: false, message: 'Server error' });
     }
 });
+
+app.post('/api/stop-tracking', async (req, res) => {
+    try {
+        const cartRef = db.collection('golf_carts').doc('cart_01');
+        await cartRef.update({
+            status: 'คนขับออฟไลน์',
+            lastUpdate: new Date()
+        });
+        console.log("Driver cart_01 has stopped tracking.");
+        res.json({ success: true, message: 'Tracking stopped successfully.' });
+    } catch (error) {
+        console.error("Stop Tracking API Error:", error);
+        res.status(500).json({ success: false, message: 'Failed to stop tracking.' });
+    }
+});
+
 
 app.get('/api/dashboard/stats', async (req, res) => {
     try {
@@ -512,12 +542,17 @@ async function handleTextMessage(event) {
 
 // --- Helper Functions ---
 function getDistanceFromLatLonInM(lat1, lon1, lat2, lon2) {
-    const R = 6371e3;
+    const R = 6371e3; // Radius of the earth in meters
     const dLat = (lat2 - lat1) * (Math.PI / 180);
-    const dLon = (lon2 - 1) * (Math.PI / 180);
-    const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) + Math.cos(lat1 * (Math.PI / 180)) * Math.cos(lat2 * (Math.PI / 180)) * Math.sin(dLon / 2) * Math.sin(dLon / 2);
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-    return R * c;
+    const dLon = (lon2 - lon1) * (Math.PI / 180); // **[แก้ไข]** แก้ไขจาก -1 เป็น -lon1
+    const a = 
+        Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+        Math.cos(lat1 * (Math.PI / 180)) * Math.cos(lat2 * (Math.PI / 180)) * 
+        Math.sin(dLon / 2) * Math.sin(dLon / 2)
+        ; 
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)); 
+    const d = R * c; // Distance in meters
+    return d;
 }
 
 async function callNextUser(freedRoomNumber) {
