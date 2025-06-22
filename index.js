@@ -202,7 +202,7 @@ app.post('/api/update-live-location', async (req, res) => {
         
         if (closestStop && minDistance < 20) {
             statusMessage = `ถึงแล้ว: ${closestStop.name}`;
-            if (previousStatus.includes(statusMessage)) {
+            if (!previousStatus.includes(statusMessage)) {
               audioNotificationUrl = arrivalAudioMap[closestStop.name]; 
             }
         } else if (closestStop && minDistance < 50) {
