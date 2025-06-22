@@ -1,1 +1,29 @@
-<!DOCTYPE html><html lang="th"><head><title>Driver GPS Tracker</title><meta name="viewport" content="width=device-width, initial-scale=1.0"><style>body{font-family:sans-serif;padding:20px;text-align:center;} button{padding:15px 25px;font-size:1.2em;cursor:pointer;margin:5px;} #start-tracking{background-color:#28a745;color:white;border:none;} #stop-tracking{background-color:#dc3545;color:white;border:none;} #status{margin-top:20px;font-weight:bold;font-size:1.1em;height:40px;}</style></head><body><h1>Bugo Driver GPS</h1><p>กรุณากด "เริ่มการติดตาม" เพื่อเปิดระบบ GPS และปล่อยให้หน้าเว็บนี้ทำงานตลอดเวลา</p><div><button id="start-tracking">เริ่มการติดตาม</button><button id="stop-tracking" disabled>หยุดการติดตาม</button></div><div id="status">สถานะ: ปิดอยู่</div><script src="driver.js"></script></body></html>
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <title>Bugo Driver</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <style>
+        html, body { height: 100%; margin: 0; padding: 0; font-family: sans-serif; display: flex; flex-direction: column; }
+        #map { flex-grow: 1; /* ทำให้แผนที่ขยายเต็มพื้นที่ */ }
+        #controls { padding: 10px; background-color: #f4f4f4; text-align: center; border-top: 1px solid #ddd; }
+        button { padding: 15px 25px; font-size: 1.2em; cursor: pointer; margin: 5px; border-radius: 8px; border: none; }
+        #start-tracking { background-color: #28a745; color: white; }
+        #stop-tracking { background-color: #dc3545; color: white; }
+        #status { margin-top: 10px; font-weight: bold; font-size: 1.1em; }
+    </style>
+</head>
+<body>
+    <div id="map"></div>
+    <div id="controls">
+        <button id="start-tracking">เริ่มการติดตาม</button>
+        <button id="stop-tracking" disabled>หยุดการติดตาม</button>
+        <div id="status">สถานะ: ปิดอยู่</div>
+    </div>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="/moving-marker.js"></script> <!-- ถ้าคุณใช้วิธีรวมไฟล์ -->
+    <script src="driver.js"></script>
+</body>
+</html>

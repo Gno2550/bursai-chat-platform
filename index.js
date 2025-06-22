@@ -28,10 +28,9 @@ const arrivalAudioMap = {
   // เพิ่มป้ายอื่นๆ ของคุณที่นี่
 };
 const approachingAudioMap = {
-    "BUS_STOP1": "YOUR_URL_FOR_APPROACHING_BUS_STOP_1.mp3",
-    "BUS_STOP2": "YOUR_URL_FOR_APPROACHING_BUS_STOP_2.mp3",
-    "BUS_STOP3": "YOUR_URL_FOR_APPROACHING_BUS_STOP_2.mp3",
-    "BUS_STOP4": "YOUR_URL_FOR_APPROACHING_BUS_STOP_2.mp3",
+    "BUS_STOP1": "https://cdn.glitch.global/4a2b378a-09fc-47bc-b98f-5ba993690b44/2-%E0%B9%83%E0%B8%81%E0%B8%A5%E0%B9%89%E0%B8%96%E0%B8%B6%E0%B8%87%E0%B9%81%E0%B8%A5%E0%B9%89.mp3?v=1750572365692",
+    "BUS_STOP2": "https://cdn.glitch.global/4a2b378a-09fc-47bc-b98f-5ba993690b44/3-%E0%B9%83%E0%B8%81%E0%B8%A5%E0%B9%89%E0%B8%96%E0%B8%B6%E0%B8%87%E0%B9%81%E0%B8%A5%E0%B9%89.mp3?v=1750572215069",
+    "BUS_STOP3": "https://cdn.glitch.global/4a2b378a-09fc-47bc-b98f-5ba993690b44/4-ใกล้ถึงแล้ว 3.mp3?v=1750572333967",
     // เพิ่มให้ครบทุกป้าย
 };
 
@@ -200,57 +199,28 @@ app.post('/api/update-live-location', async (req, res) => {
 
         let statusMessage = "ระหว่างทาง";
         let audioNotificationUrl = null;
-
-        // --- [Logic ใหม่] การจัดการสถานะและการบันทึก Log การเดินทาง ---
-        const now = new Date();
-        const travelLogsRef = db.collection('travel_logs');
-
+        let notifiedApproaching = false;
+         // --- [แก้ไข Logic การแจ้งเตือนทั้งหมด] ---
         if (closestStop && minDistance < 20) { // เมื่อถึงป้าย
             statusMessage = `ถึงแล้ว: ${closestStop.name}`;
-            if (!previousStatus.includes(closestStop.name)) {
+            if (!previousStatus.includes(statusMessage)) {
                 audioNotificationUrl = arrivalAudioMap[closestStop.name];
-
-                // ค้นหา Log การออกเดินทางล่าสุดที่ยังไม่เสร็จ
-                const lastDepartureQuery = await travelLogsRef
-                    .where('cartId', '==', 'cart_01')
-                    .where('status', '==', 'DEPARTED')
-                    .orderBy('departureTime', 'desc')
-                    .limit(1)
-                    .get();
-
-                if (!lastDepartureQuery.empty) {
-                    const departureDoc = lastDepartureQuery.docs[0];
-                    const departureData = departureDoc.data();
-                    const travelTimeSeconds = now.getTime() / 1000 - departureData.departureTime.seconds;
-                    
-                    // อัปเดต Log ว่าเดินทางสำเร็จแล้ว
-                    await departureDoc.ref.update({
-                        status: 'COMPLETED',
-                        destination: closestStop.name,
-                        arrivalTime: now,
-                        durationSeconds: travelTimeSeconds
-                    });
-                    console.log(`Travel log COMPLETED: From ${departureData.origin} to ${closestStop.name} in ${travelTimeSeconds.toFixed(0)}s`);
-                }
             }
-        } else if (closestStop) { // เมื่ออยู่ระหว่างทาง
+        } else if (closestStop && minDistance < 70) { // **[ใหม่]** เมื่อเข้าใกล้ในระยะ 70 เมตร
+            statusMessage = `กำลังเข้าใกล้ ${closestStop.name}`;
+            notifiedApproaching = true; // ตั้งสถานะว่ากำลังจะแจ้งเตือน
+            if (!hasBeenNotifiedApproaching) { // ถ้ายังไม่เคยแจ้งเตือนมาก่อน
+                audioNotificationUrl = approachingAudioMap[closestStop.name];
+            }
+        } else if (closestStop) { // เมื่ออยู่ไกลกว่านั้น
             statusMessage = `กำลังมุ่งหน้าไป ${closestStop.name}`;
-            // ตรวจสอบว่าเพิ่งออกจากป้ายหรือไม่
-            if (previousClosestStopName && previousStatus.startsWith('ถึงแล้ว:') && !statusMessage.startsWith('ถึงแล้ว:')) {
-                 // สร้าง Log การออกเดินทางใหม่
-                 await travelLogsRef.add({
-                    cartId: 'cart_01',
-                    status: 'DEPARTED',
-                    origin: previousClosestStopName,
-                    departureTime: now
-                 });
-                 console.log(`Travel log DEPARTED: From ${previousClosestStopName}`);
-            }
+            // สถานะการแจ้งเตือนจะถูกรีเซ็ต (เป็น false) โดยอัตโนมัติเมื่อออกจากระยะ
         }
         
         await cartRef.set({ 
             location: new admin.firestore.GeoPoint(latitude, longitude), 
             status: statusMessage,
+            notifiedApproaching: notifiedApproaching,
             closestStopName: closestStop ? closestStop.name : null, // เก็บชื่อป้ายที่ใกล้ที่สุด
             lastUpdate: now
         }, { merge: true });
