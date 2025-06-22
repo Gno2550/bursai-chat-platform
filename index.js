@@ -198,13 +198,14 @@ app.post('/api/update-live-location', async (req, res) => {
         let etaMinutes = 0;
         let audioNotificationUrl = null; 
         let notifiedApproaching = false;
-
-        if (closestStop && minDistance < 10) {
+        let soundstatus = 0;
+        
+        if (closestStop && minDistance < 20) {
             statusMessage = `ถึงแล้ว: ${closestStop.name}`;
-            if (!previousStatus.includes(statusMessage)) {
-                audioNotificationUrl = arrivalAudioMap[closestStop.name]; 
+            if (previousStatus.includes(statusMessage)) {
+              audioNotificationUrl = arrivalAudioMap[closestStop.name]; 
             }
-        } else if (closestStop && minDistance < 40) {
+        } else if (closestStop && minDistance < 50) {
             statusMessage = `กำลังเข้าใกล้ ${closestStop.name}`;
             notifiedApproaching = true;
             if (!hasBeenNotifiedApproaching) {
