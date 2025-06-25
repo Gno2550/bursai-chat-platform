@@ -300,7 +300,7 @@ app.post('/api/update-live-location', async (req, res) => {
         let etaMinutes = 0;
         let audioNotificationUrl = null; 
 
-        if (closestStop && minDistance < 20) {
+        if (closestStop && minDistance < 10) {
             statusMessage = `ถึงแล้ว: ${closestStop.name}`;
             if (!previousStatus.includes(statusMessage)) {
                 audioNotificationUrl = arrivalAudioMap[closestStop.name]; 
@@ -309,7 +309,7 @@ app.post('/api/update-live-location', async (req, res) => {
                 await cartRef.update({ notifiedForStop: null });
             }
 
-        } else if (closestStop && minDistance < 70) {
+        } else if (closestStop && minDistance < 40) {
             statusMessage = `กำลังเข้าใกล้ ${closestStop.name}`;
             if (notifiedForStop !== closestStop.name) {
                 audioNotificationUrl = approachingAudioMap[closestStop.name];
