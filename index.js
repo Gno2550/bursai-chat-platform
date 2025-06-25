@@ -20,23 +20,19 @@ const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash-latest" });
 const TOTAL_ROOMS = 5;
 
-// --- "แผนที่เสียง" (Audio Map) ---
 const arrivalAudioMap = {
-    "BUS_STOP1": "https://cdn.glitch.global/4a2b378a-09fc-47bc-b98f-5ba993690b44/%E0%B8%96%E0%B8%B6%E0%B8%87%E0%B8%88%E0%B8%B8%E0%B8%94%E0%B8%88%E0%B8%AD%E0%B8%94%E0%B8%A3.mp3?v=1750820544269",
-    "BUS_STOP2": "https://cdn.glitch.global/4a2b378a-09fc-47bc-b98f-5ba993690b44/%E0%B8%96%E0%B8%B6%E0%B8%87%E0%B8%88%E0%B8%B8%E0%B8%94%E0%B8%88%E0%B8%AD%E0%B8%94%E0%B8%A3.mp3?v=1750820544269",
-    "BUS_STOP3": "https://cdn.glitch.global/4a2b378a-09fc-47bc-b98f-5ba993690b44/%E0%B8%96%E0%B8%B6%E0%B8%87%E0%B8%88%E0%B8%B8%E0%B8%94%E0%B8%88%E0%B8%AD%E0%B8%94%E0%B8%A3.mp3?v=1750820544269",
+    "BUS_STOP1": "https://cdn.glitch.global/4a2b378a-09fc-47bc-b98f-5ba993690b44/1-%E0%B8%96%E0%B8%B6%E0%B8%87%E0%B8%88%E0%B8%B8%E0%B8%94%E0%B8%88%E0%B8%AD%E0%B8%94%E0%B8%A3.mp3?v=1750519742261",
+    "BUS_STOP2": "https://cdn.glitch.global/4a2b378a-09fc-47bc-b98f-5ba993690b44/1-%E0%B8%96%E0%B8%B6%E0%B8%87%E0%B8%88%E0%B8%B3%E0%B8%94%E0%B8%88%E0%B8%AD%E0%B8%94%E0%B8%A3.mp3?v=1750519742261",
+    "BUS_STOP3": "https://cdn.glitch.global/4a2b378a-09fc-47bc-b98f-5ba993690b44/1-%E0%B8%96%E0%B8%B6%E0%B8%87%E0%B8%88%E0%B8%B3%E0%B8%94%E0%B8%88%E0%B8%AD%E0%B8%94%E0%B8%A3.mp3?v=1750519742261",
 };
-// **[แก้ไข]** เพิ่ม approachingAudioMap ที่หายไปกลับเข้ามา
 const approachingAudioMap = {
     "BUS_STOP1": "https://cdn.glitch.global/4a2b378a-09fc-47bc-b98f-5ba993690b44/2-%E0%B9%83%E0%B8%81%E0%B8%A5%E0%B9%89%E0%B8%96%E0%B8%B6%E0%B8%87%E0%B9%81%E0%B8%A5%E0%B9%89.mp3?v=1750572365692",
     "BUS_STOP2": "https://cdn.glitch.global/4a2b378a-09fc-47bc-b98f-5ba993690b44/3-%E0%B9%83%E0%B8%81%E0%B8%A5%E0%B9%89%E0%B8%96%E0%B8%B6%E0%B8%87%E0%B9%81%E0%B8%A5%E0%B9%89.mp3?v=1750572215069",
     "BUS_STOP3": "https://cdn.glitch.global/4a2b378a-09fc-47bc-b98f-5ba993690b44/4-ใกล้ถึงแล้ว 3.mp3?v=1750572333967",
 };
 
-
 const app = express();
 
-// --- Middleware & Routes ---
 app.use(express.static('public'));
 app.post('/webhook', line.middleware(config), (req, res) => { Promise.all(req.body.events.map(handleEvent)).then((result) => res.json(result)).catch((err) => { console.error("Webhook Error:", err); res.status(500).end(); }); });
 app.use(express.json());
@@ -299,9 +295,10 @@ app.post('/api/update-live-location', async (req, res) => {
         let distanceToNextStop = 0;
         let etaMinutes = 0;
         let audioNotificationUrl = null; 
+        const now = new Date();
+        const travelLogsRef = db.collection('travel_logs');
 
-         // --- [แก้ไข Logic ใหม่ทั้งหมด] ---
-        if (closestStop && minDistance < 15) { // **[แก้]** กรณีที่ 1: ถึงแล้ว (น้อยกว่า 15 เมตร)
+        if (closestStop && minDistance < 15) { 
             statusMessage = `ถึงแล้ว: ${closestStop.name}`;
             if (!previousStatus.includes(statusMessage)) {
                 audioNotificationUrl = arrivalAudioMap[closestStop.name];
@@ -313,9 +310,7 @@ app.post('/api/update-live-location', async (req, res) => {
                     console.log(`Travel log COMPLETED for: ${closestStop.name}`);
                 }
             }
-
-        } else if (closestStop && minDistance < 50) { // **[แก้]** กรณีที่ 2: ใกล้ถึง (น้อยกว่า 50 เมตร)
-            // ตรวจสอบว่าไม่ได้กำลังออกจากป้ายเดิมที่เพิ่งถึง
+        } else if (closestStop && minDistance < 50) { 
             if (!previousStatus.startsWith(`ถึงแล้ว: ${closestStop.name}`)) {
                 statusMessage = `กำลังเข้าใกล้ ${closestStop.name}`;
                 if (notifiedForStop !== closestStop.name) {
@@ -323,17 +318,13 @@ app.post('/api/update-live-location', async (req, res) => {
                     await cartRef.update({ notifiedForStop: closestStop.name });
                 }
             } else {
-                // **[ใหม่]** ถ้ายังอยู่ในระยะใกล้ถึงของป้ายเดิมที่เพิ่งจากมา ให้ถือว่าเป็น "กำลังออกจากป้าย"
                 statusMessage = `กำลังออกจาก: ${closestStop.name}`;
             }
-
-        } else if (closestStop) { // กรณีที่ 3: กำลังเดินทาง (ไกล)
+        } else if (closestStop) {
             statusMessage = `กำลังมุ่งหน้าไป ${closestStop.name}`;
-            // ถ้าสถานะก่อนหน้าคือการ "ถึงแล้ว" หรือ "กำลังออกจาก" แสดงว่าเราได้ออกจาก Area ของป้ายเก่าโดยสมบูรณ์แล้ว
             if (previousStatus.startsWith('ถึงแล้ว:') || previousStatus.startsWith('กำลังออกจาก:')) {
                 const departedStopName = previousStatus.replace('ถึงแล้ว: ', '').replace('กำลังออกจาก: ', '');
-                await cartRef.update({ notifiedForStop: null }); // รีเซ็ตการแจ้งเตือน
-                // บันทึก Log การออกเดินทาง
+                await cartRef.update({ notifiedForStop: null });
                 const lastDepartureQuery = await travelLogsRef.where('origin', '==', departedStopName).where('status', '==', 'DEPARTED').orderBy('departureTime', 'desc').limit(1).get();
                 if (lastDepartureQuery.empty) {
                      await travelLogsRef.add({ cartId: 'cart_01', status: 'DEPARTED', origin: departedStopName, departureTime: now });
@@ -363,7 +354,7 @@ app.post('/api/update-live-location', async (req, res) => {
             status: statusMessage, 
             distanceToNextStop: distanceToNextStop, 
             etaMinutes: etaMinutes, 
-            lastUpdate: new Date()
+            lastUpdate: now
         }, { merge: true });
         
         res.json({ 
@@ -378,138 +369,178 @@ app.post('/api/update-live-location', async (req, res) => {
     }
 });
 
-
-app.post("/api/stop-tracking", async (req, res) => {
-  try {
-    const cartRef = db.collection("golf_carts").doc("cart_01");
-    await cartRef.update({
-      status: "คนขับออฟไลน์",
-      lastUpdate: new Date(),
-      notifiedForStop: null,
-    });
-    console.log("Driver cart_01 has stopped tracking.");
-    res.json({ success: true, message: "Tracking stopped successfully." });
-  } catch (error) {
-    console.error("Stop Tracking API Error:", error);
-    res.status(500).json({ success: false, message: "Failed to stop tracking." });
-  }
+app.post('/api/stop-tracking', async (req, res) => {
+    try {
+        const cartRef = db.collection('golf_carts').doc('cart_01');
+        await cartRef.update({
+            status: 'คนขับออฟไลน์',
+            lastUpdate: new Date(),
+            notifiedForStop: null 
+        });
+        console.log("Driver cart_01 has stopped tracking.");
+        res.json({ success: true, message: 'Tracking stopped successfully.' });
+    } catch (error) {
+        console.error("Stop Tracking API Error:", error);
+        res.status(500).json({ success: false, message: 'Failed to stop tracking.' });
+    }
 });
 
-app.get("/api/dashboard/stats", async (req, res) => {
-  try {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
 
-    const sevenDaysAgo = new Date();
-    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+app.get('/api/dashboard/stats', async (req, res) => {
+    try {
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
 
-    const [
-      usersSnapshot,
-      registrationsTodaySnapshot,
-      checkinsSnapshot,
-      servingSnapshot,
-      waitingSnapshot,
-      recentUsersSnapshot,
-      finishedQueuesTodaySnapshot,
-    ] = await Promise.all([
-      db.collection("users").get(),
-      db.collection("users").where("registeredAt", ">=", today).get(),
-      db.collection("checkin_events").where("checkInTime", ">=", today).get(),
-      db.collection("queues").where("status", "==", "SERVING").get(),
-      db.collection("queues").where("status", "==", "WAITING").get(),
-      db.collection("users").where("registeredAt", ">=", sevenDaysAgo).orderBy("registeredAt").get(),
-      db.collection("queues").where("status", "==", "FINISHED").where("finishTime", ">=", today).get(),
-    ]);
+        const sevenDaysAgo = new Date();
+        sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
 
-    const totalUsers = usersSnapshot.size;
-    const registrationsToday = registrationsTodaySnapshot.size;
-    const checkinsToday = checkinsSnapshot.size;
+        const [
+            usersSnapshot,
+            registrationsTodaySnapshot,
+            checkinsSnapshot,
+            servingSnapshot,
+            waitingSnapshot,
+            recentUsersSnapshot,
+            finishedQueuesTodaySnapshot
+        ] = await Promise.all([
+            db.collection('users').get(),
+            db.collection('users').where('registeredAt', '>=', today).get(),
+            db.collection('checkin_events').where('checkInTime', '>=', today).get(),
+            db.collection('queues').where('status', '==', 'SERVING').get(),
+            db.collection('queues').where('status', '==', 'WAITING').get(),
+            db.collection('users').where('registeredAt', '>=', sevenDaysAgo).orderBy('registeredAt').get(),
+            db.collection('queues').where('status', '==', 'FINISHED').where('finishTime', '>=', today).get()
+        ]);
+        
+        const totalUsers = usersSnapshot.size;
+        const registrationsToday = registrationsTodaySnapshot.size;
+        const checkinsToday = checkinsSnapshot.size;
+        
+        const queueStatus = {
+            serving: servingSnapshot.docs.map(doc => doc.data()),
+            waiting: waitingSnapshot.docs.map(doc => doc.data()),
+        };
 
-    const queueStatus = {
-      serving: servingSnapshot.docs.map((doc) => doc.data()),
-      waiting: waitingSnapshot.docs.map((doc) => doc.data()),
-    };
+        const registrationChartData = { labels: [], data: [] };
+        const regCounts = {};
+        recentUsersSnapshot.docs.forEach(doc => {
+            const data = doc.data();
+            if (data.registeredAt && data.registeredAt.seconds) {
+                const date = new Date(data.registeredAt.seconds * 1000).toLocaleDateString('en-CA');
+                regCounts[date] = (regCounts[date] || 0) + 1;
+            }
+        });
+        for(let i=6; i>=0; i--) {
+            const d = new Date();
+            d.setDate(d.getDate() - i);
+            const label = d.toLocaleDateString('en-CA');
+            registrationChartData.labels.push(label);
+            registrationChartData.data.push(regCounts[label] || 0);
+        }
 
-    const registrationChartData = { labels: [], data: [] };
-    const regCounts = {};
-    recentUsersSnapshot.docs.forEach((doc) => {
-      const data = doc.data();
-      if (data.registeredAt && data.registeredAt.seconds) {
-        const date = new Date(data.registeredAt.seconds * 1000).toLocaleDateString("en-CA");
-        regCounts[date] = (regCounts[date] || 0) + 1;
-      }
-    });
-    for (let i = 6; i >= 0; i--) {
-      const d = new Date();
-      d.setDate(d.getDate() - i);
-      const label = d.toLocaleDateString("en-CA");
-      registrationChartData.labels.push(label);
-      registrationChartData.data.push(regCounts[label] || 0);
+        const checkinChartData = { labels: [], data: [] };
+        const checkinCounts = Array(24).fill(0); 
+        checkinsSnapshot.docs.forEach(doc => {
+            const data = doc.data();
+            if (data.checkInTime && data.checkInTime.seconds) {
+                const hour = new Date(data.checkInTime.seconds * 1000).getHours();
+                checkinCounts[hour]++;
+            }
+        });
+        for (let i = 0; i < 24; i++) {
+            checkinChartData.labels.push(`${i}:00`);
+            checkinChartData.data.push(checkinCounts[i]);
+        }
+        
+        const staffCheckinCounts = {};
+        checkinsSnapshot.docs.forEach(doc => {
+            const staffName = doc.data().scannedBy;
+            if (staffName) {
+                staffCheckinCounts[staffName] = (staffCheckinCounts[staffName] || 0) + 1;
+            }
+        });
+        const staffLeaderboard = Object.entries(staffCheckinCounts)
+            .map(([name, count]) => ({ name, count }))
+            .sort((a, b) => b.count - a.count);
+
+        let totalWaitTimeMinutes = 0;
+        let validFinishedQueuesCount = 0;
+        finishedQueuesTodaySnapshot.docs.forEach(doc => {
+            const data = doc.data();
+            if (data.finishTime && data.checkInTime) {
+                const waitTime = (data.finishTime.seconds - data.checkInTime.seconds) / 60;
+                totalWaitTimeMinutes += waitTime;
+                validFinishedQueuesCount++;
+            }
+        });
+        
+        const averageWaitTime = validFinishedQueuesCount > 0 
+            ? (totalWaitTimeMinutes / validFinishedQueuesCount).toFixed(1) 
+            : 0;
+
+        const summaryData = {
+            topPerformingStaff: staffLeaderboard.length > 0 ? staffLeaderboard[0] : null,
+            averageWaitTime: averageWaitTime,
+            totalFinishedToday: finishedQueuesTodaySnapshot.size
+        };
+
+        res.json({
+            totalUsers,
+            registrationsToday,
+            checkinsToday,
+            queueStatus,
+            registrationChartData,
+            checkinChartData,
+            staffLeaderboard,
+            summaryData
+        });
+
+    } catch (error) {
+        console.error("Dashboard Stats API Error:", error);
+        res.status(500).json({ error: 'Failed to fetch dashboard stats' });
     }
+});
 
-    const checkinChartData = { labels: [], data: [] };
-    const checkinCounts = Array(24).fill(0);
-    checkinsSnapshot.docs.forEach((doc) => {
-      const data = doc.data();
-      if (data.checkInTime && data.checkInTime.seconds) {
-        const hour = new Date(data.checkInTime.seconds * 1000).getHours();
-        checkinCounts[hour]++;
-      }
-    });
-    for (let i = 0; i < 24; i++) {
-      checkinChartData.labels.push(`${i}:00`);
-      checkinChartData.data.push(checkinCounts[i]);
+
+app.get('/api/dashboard/travel-times', async (req, res) => {
+    try {
+        const completedLogsSnapshot = await db.collection('travel_logs')
+            .where('status', '==', 'COMPLETED')
+            .get();
+
+        const travelStats = {};
+
+        completedLogsSnapshot.docs.forEach(doc => {
+            const log = doc.data();
+            if (log.origin && log.destination && typeof log.durationSeconds === 'number') {
+                const routeKey = `${log.origin} -> ${log.destination}`;
+                if (!travelStats[routeKey]) {
+                    travelStats[routeKey] = {
+                        totalDuration: 0,
+                        count: 0
+                    };
+                }
+                travelStats[routeKey].totalDuration += log.durationSeconds;
+                travelStats[routeKey].count++;
+            }
+        });
+
+        const result = Object.entries(travelStats).map(([route, stats]) => {
+            const averageSeconds = stats.totalDuration / stats.count;
+            const averageMinutes = (averageSeconds / 60).toFixed(1);
+            return {
+                route: route,
+                averageTimeMinutes: averageMinutes,
+                tripCount: stats.count
+            }
+        }).sort((a,b) => b.tripCount - a.tripCount);
+
+        res.json(result);
+
+    } catch (error) {
+        console.error("Travel Times API Error:", error);
+        res.status(500).json({ error: 'Failed to fetch travel times' });
     }
-
-    const staffCheckinCounts = {};
-    checkinsSnapshot.docs.forEach((doc) => {
-      const staffName = doc.data().scannedBy;
-      if (staffName) {
-        staffCheckinCounts[staffName] =(staffCheckinCounts[staffName] || 0) + 1;
-      }
-    });
-    const staffLeaderboard = Object.entries(staffCheckinCounts)
-      .map(([name, count]) => ({ name, count }))
-      .sort((a, b) => b.count - a.count);
-
-    let totalWaitTimeMinutes = 0;
-    let validFinishedQueuesCount = 0;
-    finishedQueuesTodaySnapshot.docs.forEach((doc) => {
-      const data = doc.data();
-      if (data.finishTime && data.checkInTime) {
-        const waitTime =
-          (data.finishTime.seconds - data.checkInTime.seconds) / 60;
-        totalWaitTimeMinutes += waitTime;
-        validFinishedQueuesCount++;
-      }
-    });
-
-    const averageWaitTime =
-      validFinishedQueuesCount > 0
-        ? (totalWaitTimeMinutes / validFinishedQueuesCount).toFixed(1)
-        : 0;
-
-    const summaryData = {
-      topPerformingStaff:
-        staffLeaderboard.length > 0 ? staffLeaderboard[0] : null,
-      averageWaitTime: averageWaitTime,
-      totalFinishedToday: finishedQueuesTodaySnapshot.size,
-    };
-
-    res.json({
-      totalUsers,
-      registrationsToday,
-      checkinsToday,
-      queueStatus,
-      registrationChartData,
-      checkinChartData,
-      staffLeaderboard,
-      summaryData,
-    });
-  } catch (error) {
-    console.error("Dashboard Stats API Error:", error);
-    res.status(500).json({ error: "Failed to fetch dashboard stats" });
-  }
 });
 
 // --- ** ส่วนจัดการ Logic หลักของบอท (handleEvent) ** ---
