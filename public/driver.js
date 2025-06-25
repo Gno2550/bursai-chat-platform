@@ -117,55 +117,75 @@ document.addEventListener('DOMContentLoaded', () => {
     function handleError(error) {
         statusDiv.textContent = `GPS Error: ${error.message}`;
     }
+    
+// --- **[ใหม่]** ฟังก์ชันควบคุมการเริ่ม/หยุด ---
+function startTracking() {
+    if (isTracking) return;
 
-    // --- 5. Event Listeners ---
-    startBtn.addEventListener('click', () => {
-        if (watchId) return;
+    // ปลดล็อก Audio Context
+    if (notificationPlayer.paused) {
+       notificationPlayer.play().catch(() => {});
+       notificationPlayer.pause();
+    }
 
-        // **[สำคัญ]** ปลดล็อก Audio Context
-        // สร้าง AudioContext และเล่นเสียงว่างๆ เพื่อให้แน่ใจว่าเบราว์เซอร์พร้อมเล่นเสียง
-        // ทำแค่ครั้งแรกที่ผู้ใช้คลิก
-        if (notificationPlayer.paused) {
-           notificationPlayer.play().catch(() => {});
-           notificationPlayer.pause();
-           console.log("Audio player unlocked by user interaction.");
-        }
+    watchId = navigator.geolocation.watchPosition(updateLocation, handleError, {
+        enableHighAccuracy: true, timeout: 10000, maximumAge: 0
+    });
 
-        watchId = navigator.geolocation.watchPosition(updateLocation, handleError, {
-            enableHighAccuracy: true, timeout: 10000, maximumAge: 0
+    isTracking = true;
+    statusDiv.textContent = 'เริ่มการติดตาม...';
+    toggleBtn.textContent = 'หยุดการติดตาม';
+    toggleBtn.className = 'stop';
+    
+    queueSound(startupAudioUrl);
+}
+
+function stopTracking() {
+    if (!isTracking) return;
+    if (watchId) navigator.geolocation.clearWatch(watchId);
+    watchId = null;
+    isTracking = false;
+
+    statusDiv.textContent = 'กำลังหยุดระบบ...';
+    toggleBtn.disabled = true;
+
+    fetch('/api/stop-tracking', { method: 'POST' })
+        .then(res => res.json())
+        .then(data => {
+            if (data.success) {
+                statusDiv.textContent = 'หยุดการติดตามแล้ว';
+            } else { throw new Error('Server failed to acknowledge stop.'); }
+        })
+        .catch(error => {
+            console.error('Failed to notify server of stop:', error);
+            statusDiv.textContent = 'หยุด GPS แล้ว แต่แจ้งเซิร์ฟเวอร์ไม่สำเร็จ';
+        })
+        .finally(() => {
+            toggleBtn.textContent = 'เริ่มการติดตาม';
+            toggleBtn.className = 'start';
+            toggleBtn.disabled = false;
         });
+}
 
-        statusDiv.textContent = 'เริ่มการติดตาม...';
-        startBtn.disabled = true;
-        stopBtn.disabled = false;
-        
-        // เอาเสียงเริ่มต้นไปต่อคิว
-        queueSound(startupAudioUrl);
-    });
+// --- Event Listeners ---
+toggleBtn.addEventListener('click', () => {
+    if (isTracking) {
+        stopTracking();
+    } else {
+        startTracking();
+    }
+});
 
-    stopBtn.addEventListener('click', () => {
-        if (!watchId) return;
-        navigator.geolocation.clearWatch(watchId);
-        watchId = null;
-        statusDiv.textContent = 'กำลังหยุดระบบ...';
-        startBtn.disabled = true; 
-        stopBtn.disabled = true;
-
-        fetch('/api/stop-tracking', { method: 'POST' })
-            .then(res => res.json())
-            .then(data => {
-                if (data.success) {
-                    statusDiv.textContent = 'หยุดการติดตามแล้ว';
-                    startBtn.disabled = false;
-                } else { throw new Error('Server failed to acknowledge stop.'); }
-            })
-            .catch(error => {
-                console.error('Failed to notify server of stop:', error);
-                statusDiv.textContent = 'หยุด GPS แล้ว แต่แจ้งเซิร์ฟเวอร์ไม่สำเร็จ';
-                startBtn.disabled = false;
-            });
-    });
-
-    // --- 6. Initial Load ---
+fullscreenBtn.addEventListener('click', () => {
+    const mapContainer = document.getElementById('map-container');
+    if (!document.fullscreenElement) {
+        mapContainer.requestFullscreen().catch(err => {
+            alert(`Error attempting to enable full-screen mode: ${err.message} (${err.name})`);
+        });
+    } else {
+        document.exitFullscreen();
+    }
+});
+ // --- 6. Initial Load ---
     initMap();
 });

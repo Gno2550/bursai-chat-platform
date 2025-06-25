@@ -300,32 +300,45 @@ app.post('/api/update-live-location', async (req, res) => {
         let etaMinutes = 0;
         let audioNotificationUrl = null; 
 
-        if (closestStop && minDistance < 10) {
+         // --- [แก้ไข Logic ใหม่ทั้งหมด] ---
+        if (closestStop && minDistance < 15) { // **[แก้]** กรณีที่ 1: ถึงแล้ว (น้อยกว่า 15 เมตร)
             statusMessage = `ถึงแล้ว: ${closestStop.name}`;
             if (!previousStatus.includes(statusMessage)) {
-                audioNotificationUrl = arrivalAudioMap[closestStop.name]; 
-            }
-            if (notifiedForStop) {
-                await cartRef.update({ notifiedForStop: null });
+                audioNotificationUrl = arrivalAudioMap[closestStop.name];
+                const lastDepartureQuery = await travelLogsRef.where('cartId', '==', 'cart_01').where('status', '==', 'DEPARTED').orderBy('departureTime', 'desc').limit(1).get();
+                if (!lastDepartureQuery.empty) {
+                    const departureDoc = lastDepartureQuery.docs[0];
+                    const travelTimeSeconds = (now.getTime() / 1000) - departureDoc.data().departureTime.seconds;
+                    await departureDoc.ref.update({ status: 'COMPLETED', destination: closestStop.name, arrivalTime: now, durationSeconds: travelTimeSeconds });
+                    console.log(`Travel log COMPLETED for: ${closestStop.name}`);
+                }
             }
 
-        } else if (closestStop && minDistance < 40) {
-            statusMessage = `กำลังเข้าใกล้ ${closestStop.name}`;
-            if (notifiedForStop !== closestStop.name) {
-                audioNotificationUrl = approachingAudioMap[closestStop.name];
-                await cartRef.update({ notifiedForStop: closestStop.name });
-            }
-            
-        } else if (closestStop) {
-            statusMessage = `กำลังมุ่งหน้าไป ${closestStop.name}`;
-            if (previousStatus.startsWith('ถึงแล้ว:')) {
-                const departedStopName = previousStatus.replace('ถึงแล้ว: ', '');
-                const lastDepartureQuery = await db.collection('travel_logs').where('origin', '==', departedStopName).where('status', '==', 'DEPARTED').orderBy('departureTime', 'desc').limit(1).get();
-                if (lastDepartureQuery.empty) {
-                    await db.collection('travel_logs').add({ cartId: 'cart_01', status: 'DEPARTED', origin: departedStopName, departureTime: new Date() });
-                    console.log(`Travel log DEPARTED from: ${departedStopName}`);
+        } else if (closestStop && minDistance < 50) { // **[แก้]** กรณีที่ 2: ใกล้ถึง (น้อยกว่า 50 เมตร)
+            // ตรวจสอบว่าไม่ได้กำลังออกจากป้ายเดิมที่เพิ่งถึง
+            if (!previousStatus.startsWith(`ถึงแล้ว: ${closestStop.name}`)) {
+                statusMessage = `กำลังเข้าใกล้ ${closestStop.name}`;
+                if (notifiedForStop !== closestStop.name) {
+                    audioNotificationUrl = approachingAudioMap[closestStop.name];
+                    await cartRef.update({ notifiedForStop: closestStop.name });
                 }
-                await cartRef.update({ notifiedForStop: null });
+            } else {
+                // **[ใหม่]** ถ้ายังอยู่ในระยะใกล้ถึงของป้ายเดิมที่เพิ่งจากมา ให้ถือว่าเป็น "กำลังออกจากป้าย"
+                statusMessage = `กำลังออกจาก: ${closestStop.name}`;
+            }
+
+        } else if (closestStop) { // กรณีที่ 3: กำลังเดินทาง (ไกล)
+            statusMessage = `กำลังมุ่งหน้าไป ${closestStop.name}`;
+            // ถ้าสถานะก่อนหน้าคือการ "ถึงแล้ว" หรือ "กำลังออกจาก" แสดงว่าเราได้ออกจาก Area ของป้ายเก่าโดยสมบูรณ์แล้ว
+            if (previousStatus.startsWith('ถึงแล้ว:') || previousStatus.startsWith('กำลังออกจาก:')) {
+                const departedStopName = previousStatus.replace('ถึงแล้ว: ', '').replace('กำลังออกจาก: ', '');
+                await cartRef.update({ notifiedForStop: null }); // รีเซ็ตการแจ้งเตือน
+                // บันทึก Log การออกเดินทาง
+                const lastDepartureQuery = await travelLogsRef.where('origin', '==', departedStopName).where('status', '==', 'DEPARTED').orderBy('departureTime', 'desc').limit(1).get();
+                if (lastDepartureQuery.empty) {
+                     await travelLogsRef.add({ cartId: 'cart_01', status: 'DEPARTED', origin: departedStopName, departureTime: now });
+                     console.log(`Travel log DEPARTED from: ${departedStopName}`);
+                }
             }
             try {
                 const osrmUrl = `https://router.project-osrm.org/route/v1/driving/${longitude},${latitude};${closestStop.location.longitude},${closestStop.location.latitude}`;
