@@ -5,25 +5,80 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <style>
-        html, body { height: 100%; margin: 0; padding: 0; font-family: sans-serif; display: flex; flex-direction: column; overflow: hidden; }
-        #map-container { position: relative; flex-grow: 1; }
-        #map { width: 100%; height: 100%; }
-        #fullscreen-btn { position: absolute; top: 10px; right: 10px; z-index: 1000; padding: 10px; font-size: 1.5rem; background: white; border: 1px solid #ccc; border-radius: 4px; cursor: pointer; }
-        #controls { padding: 10px; background-color: #f4f4f4; text-align: center; border-top: 1px solid #ddd; }
-        #toggle-tracking-btn { padding: 15px 25px; font-size: 1.2em; cursor: pointer; margin: 5px; border-radius: 8px; border: none; width: 80%; }
+        /* CSS ทั้งหมดจะย้ายมาอยู่ในนี้ */
+        html, body {
+            height: 100%;
+            margin: 0;
+            padding: 0;
+            font-family: sans-serif;
+            overflow: hidden; /* ป้องกันการเลื่อนหน้าจอ */
+        }
+        #app-container {
+            position: relative; /* สำคัญมากสำหรับ Panel */
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+        }
+        #map {
+            width: 100%;
+            flex-grow: 1; /* ทำให้แผนที่ขยายเต็มพื้นที่ */
+        }
+        /* --- [ใหม่] สไตล์สำหรับแผงควบคุมที่เลื่อนได้ --- */
+        #control-panel {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background-color: white;
+            border-top-left-radius: 20px;
+            border-top-right-radius: 20px;
+            box-shadow: 0 -4px 12px rgba(0,0,0,0.15);
+            padding: 15px 20px;
+            text-align: center;
+            /* เพิ่ม transition เพื่อสร้าง animation */
+            transform: translateY(0);
+            transition: transform 0.4s ease-in-out;
+            z-index: 1000;
+        }
+        /* [ใหม่] สไตล์สำหรับตอนที่ Panel ถูกซ่อน */
+        #control-panel.hidden {
+            /* เลื่อน Panel ลงไปข้างล่าง (ความสูงของปุ่ม + padding) */
+            transform: translateY(calc(100% - 60px)); 
+        }
+        /* [ใหม่] ปุ่มสำหรับเปิด/ปิด Panel */
+        #panel-toggle-btn {
+            width: 50px;
+            height: 5px;
+            background-color: #ccc;
+            border-radius: 3px;
+            margin: 0 auto 15px auto;
+            cursor: grab;
+        }
+        #toggle-tracking-btn {
+            width: 100%;
+            padding: 15px;
+            font-size: 1.2em;
+            cursor: pointer;
+            border-radius: 12px;
+            border: none;
+            margin-bottom: 10px;
+        }
         #toggle-tracking-btn.start { background-color: #28a745; color: white; }
         #toggle-tracking-btn.stop { background-color: #dc3545; color: white; }
-        #status { margin-top: 10px; font-weight: bold; font-size: 1.1em; }
+        #status { font-weight: bold; font-size: 1.1em; }
     </style>
 </head>
 <body>
-    <div id="map-container">
+    <div id="app-container">
         <div id="map"></div>
-        <button id="fullscreen-btn">⛶</button>
-    </div>
-    <div id="controls">
-        <button id="toggle-tracking-btn" class="start">เริ่มการติดตาม</button>
-        <div id="status">สถานะ: ปิดอยู่</div>
+
+        <!-- แผงควบคุมใหม่ -->
+        <div id="control-panel">
+            <div id="panel-toggle-btn"></div>
+            <button id="toggle-tracking-btn" class="start">เริ่มการติดตาม</button>
+            <div id="status">สถานะ: ปิดอยู่</div>
+        </div>
     </div>
 
     <audio id="notification-player" style="display:none;"></audio>
