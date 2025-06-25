@@ -170,18 +170,35 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    fullscreenBtn.addEventListener('click', () => {
-        const docEl = document.documentElement;
-        if (!document.fullscreenElement) {
-            if (docEl.requestFullscreen) {
-                docEl.requestFullscreen();
-            }
-        } else {
-            if (document.exitFullscreen) {
-                document.exitFullscreen();
-            }
+    
+// --- **[แก้ไขส่วนนี้]** ---
+fullscreenBtn.addEventListener('click', () => {
+    // เราจะสั่งให้ Element หลักของหน้าเว็บ (<html>) เข้าสู่โหมดเต็มจอ
+    const docEl = document.documentElement;
+
+    // ตรวจสอบว่าตอนนี้ไม่ได้อยู่ในโหมดเต็มจอใช่หรือไม่
+    if (!document.fullscreenElement) {
+        // ถ้าเบราว์เซอร์รองรับ ให้สั่งให้เข้าโหมดเต็มจอ
+        if (docEl.requestFullscreen) {
+            docEl.requestFullscreen();
+        } else if (docEl.webkitRequestFullscreen) { /* สำหรับ Safari */
+            docEl.webkitRequestFullscreen();
+        } else if (docEl.msRequestFullscreen) { /* สำหรับ IE11 */
+            docEl.msRequestFullscreen();
         }
-    });
+    } else {
+        // ถ้าอยู่ในโหมดเต็มจออยู่แล้ว ให้สั่งให้ออก
+        if (document.exitFullscreen) {
+            document.exitFullscreen();
+        } else if (document.webkitExitFullscreen) { /* สำหรับ Safari */
+            document.webkitExitFullscreen();
+        } else if (document.msExitFullscreen) { /* สำหรับ IE11 */
+            document.msExitFullscreen();
+        }
+    }
+});
+// --- สิ้นสุดการแก้ไข ---
+
 
     // --- 7. Initial Load ---
     initMap();
