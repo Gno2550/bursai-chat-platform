@@ -6,7 +6,7 @@
     "start": "node index.js"
   },
   "engines": {
-    "node": "16.x"
+    "node": "18.x"
   },
   "dependencies": {
     "@line/bot-sdk": "^10.0.0",
