@@ -186,7 +186,7 @@ app.get("/api/consent-response", async (req, res) => {
     }
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
     const userId = decoded.uid;
-    const projectUrl = `https://${process.env.PROJECT_DOMAIN}.glitch.me`;
+    const projectUrl = process.env.BASE_URL; // ดึงค่าจาก Environment Variable ที่เราตั้งไว้;
     if (choice === "agree") {
       await db
         .collection("users")
@@ -666,7 +666,8 @@ async function handleTextMessage(event) {
         process.env.JWT_SECRET,
         { expiresIn: "15m" }
       );
-      const projectUrl = `https://${process.env.PROJECT_DOMAIN}.glitch.me`;
+      // ใช้โค้ดใหม่นี้แทน
+      const projectUrl = process.env.BASE_URL; // ดึงค่าจาก Environment Variable ที่เราตั้งไว้
       const consentUrl = `${projectUrl}/consent.html?token=${consentToken}`;
       return client.replyMessage(event.replyToken, {
         type: "flex",
@@ -728,7 +729,7 @@ async function handleTextMessage(event) {
       const token = jwt.sign(payload, process.env.JWT_SECRET, {
         expiresIn: "5m",
       });
-      const projectUrl = `https://${process.env.PROJECT_DOMAIN}.glitch.me`;
+      const projectUrl = process.env.BASE_URL; // ดึงค่าจาก Environment Variable ที่เราตั้งไว้;
       const qrImageUrl = `${projectUrl}/generate-qr?token=${token}`;
       return client.replyMessage(event.replyToken, [
         {
@@ -881,7 +882,7 @@ async function handleTextMessage(event) {
     }
 
     if (lowerCaseMessage === "bugo") {
-      const projectUrl = `https://${process.env.PROJECT_DOMAIN}.glitch.me`;
+      const projectUrl = process.env.BASE_URL; // ดึงค่าจาก Environment Variable ที่เราตั้งไว้;
       const bugoTrackerUrl = `${projectUrl}/bugo.html`;
       return client.replyMessage(event.replyToken, {
         type: "flex",
