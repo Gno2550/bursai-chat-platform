@@ -14,10 +14,10 @@ document.addEventListener('DOMContentLoaded', () => {
     let driverMarker = null;
 
     // --- 2. Asset URLs ---
-    const driverIcon = L.icon({ iconUrl: 'https://cdn.glitch.global/4a2b378a-09fc-47bc-b98f-5ba993690b44/bugo-logo2.png?v=1750575455756', iconSize: [55, 60] });
-    const stopIcon = L.icon({ iconUrl: 'https://cdn.glitch.global/4a2b378a-09fc-47bc-b98f-5ba993690b44/icons8-bus-stop-96.png?v=1750447498203', iconSize: [35, 35] });
-    const startupAudioUrl = "https://cdn.glitch.global/4a2b378a-09fc-47bc-b98f-5ba993690b44/0-%E0%B9%80%E0%B8%A3%E0%B8%B4%E0%B9%88%E0%B8%A1%E0%B8%81%E0%B8%B2%E0%B8%A3%E0%B8%95%E0%B8%B4.mp3?v=1750521728365";
-    const notificationChimeUrl = "https://cdn.glitch.global/4a2b378a-09fc-47bc-b98f-5ba993690b44/chime.mp3?v=1750654848143";
+    const driverIcon = L.icon({ iconUrl: '/assets/icons8-golf-cart-80', iconSize: [55, 60] });
+    const stopIcon = L.icon({ iconUrl: '/assets/icons8-bus-stop-96', iconSize: [35, 35] });
+    const startupAudioUrl = "/assets/start";
+    const notificationChimeUrl = "/assets/din-ding-89718";
 
     // --- 3. Audio Management System ---
     let isPlaying = false;

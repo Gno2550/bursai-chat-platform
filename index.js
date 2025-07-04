@@ -26,9 +26,9 @@ const arrivalAudioMap = {
     "BUS_STOP3": "/assets/finished"
 };
 const approachingAudioMap = {
-    "BUS_STOP1": "https://cdn.glitch.global/4a2b378a-09fc-47bc-b98f-5ba993690b44/2-%E0%B9%83%E0%B8%81%E0%B8%A5%E0%B9%89%E0%B8%96%E0%B8%B6%E0%B8%87%E0%B9%81%E0%B8%A5%E0%B9%89.mp3?v=1750572365692",
-    "BUS_STOP2": "https://cdn.glitch.global/4a2b378a-09fc-47bc-b98f-5ba993690b44/3-%E0%B9%83%E0%B8%81%E0%B8%A5%E0%B9%89%E0%B8%96%E0%B8%B6%E0%B8%87%E0%B9%81%E0%B8%A5%E0%B9%89.mp3?v=1750572215069",
-    "BUS_STOP3": "https://cdn.glitch.global/4a2b378a-09fc-47bc-b98f-5ba993690b44/4-ใกล้ถึงแล้ว 3.mp3?v=1750572333967",
+    "BUS_STOP1": "/assets/BUSSTOP AUD-1",
+    "BUS_STOP2": "/assets/BUSSTOP AUD-2",
+    "BUS_STOP3": "/assets/BUSSTOP AUD-3"
 };
 
 const app = express();
