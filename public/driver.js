@@ -14,10 +14,10 @@ document.addEventListener('DOMContentLoaded', () => {
     let driverMarker = null;
 
     // --- 2. Asset URLs ---
-    const driverIcon = L.icon({ iconUrl: '/assets/icons8-golf-cart-80', iconSize: [55, 60] });
-    const stopIcon = L.icon({ iconUrl: '/assets/icons8-bus-stop-96', iconSize: [35, 35] });
-    const startupAudioUrl = "/assets/start";
-    const notificationChimeUrl = "/assets/din-ding-89718";
+    const driverIcon = L.icon({ iconUrl: '/assets/icons8-golf-cart-80.png', iconSize: [55, 60] });
+    const stopIcon = L.icon({ iconUrl: '/assets/icons8-bus-stop-96.png', iconSize: [35, 35] });
+    const startupAudioUrl = "/assets/start.mp3";
+    const notificationChimeUrl = "/assets/din-ding-89718.mp3";
 
     // --- 3. Audio Management System ---
     let isPlaying = false;

@@ -329,11 +329,11 @@ document.addEventListener('DOMContentLoaded', () => {
     const mapZoom = 18;
 
     const cartIcon = L.icon({
-        iconUrl: '/assets/icons8-golf-cart-80', // ** ใส่ URL ของคุณ **
+        iconUrl: '/assets/icons8-golf-cart-80.png', // ** ใส่ URL ของคุณ **
         iconSize: [50, 50], iconAnchor: [25, 50], popupAnchor: [0, -50]
     });
     const stopIcon = L.icon({
-        iconUrl: '/assets/icons8-bus-stop-96', // ** ใส่ URL ของคุณ **
+        iconUrl: '/assets/icons8-bus-stop-96.png', // ** ใส่ URL ของคุณ **
         iconSize: [40, 40], iconAnchor: [20, 40], popupAnchor: [0, -40]
     });
 

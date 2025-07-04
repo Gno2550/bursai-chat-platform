@@ -6,7 +6,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const map = L.map('map', { maxBounds: mapBounds, minZoom: 18, }).setView(mapCenter, 18);
     
     const busStopIcon = L.icon({
-        iconUrl: '/assets/icons8-bus-stop-96', // ** ใส่ URL จาก Asset ของคุณ **
+        iconUrl: '/assets/icons8-bus-stop-96.png', // ** ใส่ URL จาก Asset ของคุณ **
         iconSize: [40, 40], iconAnchor: [20, 40], popupAnchor: [0, -40]
     });
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);

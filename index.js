@@ -21,14 +21,14 @@ const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash-latest" });
 const TOTAL_ROOMS = 5;
 
 const arrivalAudioMap = {
-    "BUS_STOP1": "/assets/finished",
-    "BUS_STOP2": "/assets/finished",
-    "BUS_STOP3": "/assets/finished"
+    "BUS_STOP1": "/assets/finished.mp3",
+    "BUS_STOP2": "/assets/finished.mp3",
+    "BUS_STOP3": "/assets/finished.mp3"
 };
 const approachingAudioMap = {
-    "BUS_STOP1": "/assets/BUSSTOP AUD-1",
-    "BUS_STOP2": "/assets/BUSSTOP AUD-2",
-    "BUS_STOP3": "/assets/BUSSTOP AUD-3"
+    "BUS_STOP1": "/assets/BUSSTOP AUD-1.mp3",
+    "BUS_STOP2": "/assets/BUSSTOP AUD-2.mp3",
+    "BUS_STOP3": "/assets/BUSSTOP AUD-3.mp3"
 };
 
 const app = express();
