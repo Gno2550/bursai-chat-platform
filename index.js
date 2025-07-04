@@ -11,8 +11,25 @@ const { GoogleGenerativeAI } = require('@google/generative-ai');
 const bcrypt = require('bcryptjs'); 
 
 // --- Initializations ---
-const serviceAccount = require('./serviceAccountKey.json');
-admin.initializeApp({ credential: admin.credential.cert(serviceAccount) });
+
+// 1. จัดการ Firebase Admin SDK (ส่วนที่แก้ไข)
+try {
+  const serviceAccountString = process.env.GOOGLE_CREDENTIALS;
+  if (!serviceAccountString) {
+    throw new Error('The GOOGLE_CREDENTIALS environment variable is not set.');
+  }
+  const serviceAccount = JSON.parse(serviceAccountString);
+  admin.initializeApp({
+    credential: admin.credential.cert(serviceAccount)
+  });
+  console.log('Firebase Admin SDK initialized successfully.');
+} catch (error) {
+  console.error('Failed to initialize Firebase Admin SDK:', error);
+  // ใน Production อาจจะต้องการให้ process หยุดทำงานไปเลยถ้าเชื่อม Firebase ไม่ได้
+  // process.exit(1); 
+}
+
+// 2. ตั้งค่าส่วนที่เหลือ
 const db = admin.firestore();
 const config = { channelAccessToken: process.env.CHANNEL_ACCESS_TOKEN, channelSecret: process.env.CHANNEL_SECRET };
 const client = new line.Client(config);
